@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.boo.order.manager.dao.OrderDetailMapper">
+  <resultMap id="BaseResultMap" type="com.boo.order.manager.po.OrderDetail">
+    <!--@mbg.generated-->
+    <!--@Table order_detail-->
+    <id column="id" jdbcType="INTEGER" property="id" />
+    <result column="status" jdbcType="VARCHAR" property="status" />
+    <result column="address" jdbcType="VARCHAR" property="address" />
+    <result column="account_id" jdbcType="INTEGER" property="accountId" />
+    <result column="product_id" jdbcType="INTEGER" property="productId" />
+    <result column="deliveryman_id" jdbcType="INTEGER" property="deliverymanId" />
+    <result column="settlement_id" jdbcType="INTEGER" property="settlementId" />
+    <result column="reward_id" jdbcType="INTEGER" property="rewardId" />
+    <result column="price" jdbcType="DECIMAL" property="price" />
+    <result column="date" jdbcType="TIMESTAMP" property="date" />
+  </resultMap>
+  <sql id="Base_Column_List">
+    <!--@mbg.generated-->
+    id, `status`, address, account_id, product_id, deliveryman_id, settlement_id, reward_id, 
+    price, `date`
+  </sql>
+</mapper>
