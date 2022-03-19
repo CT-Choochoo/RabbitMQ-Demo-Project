@@ -36,7 +36,7 @@ public class RestaurantMessageServiceImpl implements RestaurantMessageService {
   /** 处理消息 */
   @Override
   @Async
-  public void handleMessage() {
+  public void handleMessage() throws InterruptedException {
     ConnectionFactory factory = new ConnectionFactory();
     factory.setHost("localhost");
     factory.setUsername("admin");
@@ -56,6 +56,9 @@ public class RestaurantMessageServiceImpl implements RestaurantMessageService {
       channel.basicConsume("queue.restaurant", true, deliverCallback, consumerTag -> {});
     } catch (IOException | TimeoutException e) {
       e.printStackTrace();
+    }
+    while (true) {
+      Thread.sleep(100000);
     }
   }
 

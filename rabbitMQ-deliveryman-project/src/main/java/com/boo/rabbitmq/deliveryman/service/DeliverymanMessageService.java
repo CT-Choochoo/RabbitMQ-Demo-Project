@@ -12,5 +12,5 @@ import java.util.concurrent.TimeoutException;
 public interface DeliverymanMessageService {
 
   /** 处理消息 */
-  void handleMessage() throws IOException, TimeoutException;
+  void handleMessage() throws IOException, TimeoutException, InterruptedException;
 }

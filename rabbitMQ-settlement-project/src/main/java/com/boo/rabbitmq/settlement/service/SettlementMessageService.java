@@ -1,12 +1,12 @@
-package com.boo.ribbitmq.restaurant.service;
+package com.boo.rabbitmq.settlement.service;
 
 /**
- * 餐馆消息服务
+ * 结算信息服务
  *
  * @author gaobo
  * @date 2022/03/19
  */
-public interface RestaurantMessageService {
+public interface SettlementMessageService {
 
   /** 处理消息 */
   void handleMessage() throws InterruptedException;

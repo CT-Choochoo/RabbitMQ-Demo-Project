@@ -41,7 +41,7 @@ public class DeliverymanMessageServiceImpl implements DeliverymanMessageService 
    */
   @Override
   @Async
-  public void handleMessage() throws IOException, TimeoutException {
+  public void handleMessage() throws IOException, TimeoutException, InterruptedException {
     final Connection connection = factory.newConnection();
     final Channel channel = connection.createChannel();
 
@@ -49,7 +49,7 @@ public class DeliverymanMessageServiceImpl implements DeliverymanMessageService 
     final String queueName = "queue.deliveryman";
     final String routingKey = "key.deliveryman";
     //    声明骑手交换机
-    channel.exchangeDeclare(exchangeName, BuiltinExchangeType.FANOUT, true, false, null);
+    channel.exchangeDeclare(exchangeName, BuiltinExchangeType.DIRECT, true, false, null);
     //    声明骑手队列
     channel.queueDeclare(queueName, true, false, false, null);
 
@@ -57,6 +57,9 @@ public class DeliverymanMessageServiceImpl implements DeliverymanMessageService 
     channel.queueBind(queueName, exchangeName, routingKey);
     //    定义消息消费方法
     channel.basicConsume(queueName, true, deliverymanCallback, consumerTag -> {});
+    while (true) {
+      Thread.sleep(100000);
+    }
   }
 
   /** 送货人回调 处理本次自身操作，并发送给下一阶段消息 */
