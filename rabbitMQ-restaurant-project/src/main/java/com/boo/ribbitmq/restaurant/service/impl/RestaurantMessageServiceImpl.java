@@ -3,7 +3,6 @@ package com.boo.ribbitmq.restaurant.service.impl;
 import com.boo.ribbitmq.restaurant.dto.OrderMessageDTO;
 import com.boo.ribbitmq.restaurant.entity.Product;
 import com.boo.ribbitmq.restaurant.entity.Restaurant;
-import com.boo.ribbitmq.restaurant.enums.OrderStatusEnum;
 import com.boo.ribbitmq.restaurant.enums.ProductStatusEnum;
 import com.boo.ribbitmq.restaurant.enums.RestaurantStatusEnum;
 import com.boo.ribbitmq.restaurant.service.ProductService;
@@ -16,10 +15,10 @@ import com.rabbitmq.client.Connection;
 import com.rabbitmq.client.ConnectionFactory;
 import com.rabbitmq.client.DeliverCallback;
 import java.io.IOException;
-import java.net.BindException;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.TimeoutException;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
 
 /**
  * 餐馆消息服务实现
@@ -27,8 +26,10 @@ import org.springframework.beans.factory.annotation.Autowired;
  * @author gaobo
  * @date 2022/03/19
  */
+@Service
 public class RestaurantMessageServiceImpl implements RestaurantMessageService {
 
+  @Autowired ProductService productService;
   @Autowired RestaurantService restaurantService;
   ObjectMapper objectMapper = new ObjectMapper();
   /** 处理消息 */
@@ -56,13 +57,12 @@ public class RestaurantMessageServiceImpl implements RestaurantMessageService {
     }
   }
 
-  @Autowired ProductService productService;
   /** 提供回调 */
   DeliverCallback deliverCallback =
       (tag, msg) -> {
         //        1. 创建连接工厂定义连接信息
-        //        2. 从消息中获取对象判断消息状态，如果是创建订单，则改为商家确认并设置确认字段，商家信息，商品信息，商品价格
-        //        3. 将新的实体放入消息队列中
+        //        2. 从queue.restaurant中获取对象判断消息状态，如果是创建订单，则改为商家确认并设置确认字段，商家信息，商品信息，商品价格
+        //        3. 将新的实体放入queue.order消息队列中
         final ConnectionFactory factory = new ConnectionFactory();
         factory.setHost("localhost");
         factory.setUsername("admin");

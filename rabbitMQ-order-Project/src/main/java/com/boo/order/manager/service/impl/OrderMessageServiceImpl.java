@@ -62,7 +62,7 @@ public class OrderMessageServiceImpl implements OrderMessageService {
       /*---------------------settlement 声明结算交换机 、binding key（fanout可以不设置）---------------------*/
 
       channel.exchangeDeclare(
-          "exchange.settlement.order", BuiltinExchangeType.FANOUT, true, false, null);
+          "exchange.order.settlement", BuiltinExchangeType.FANOUT, true, false, null);
 
       channel.queueBind("queue.order", "exchange.settlement.order", "key.order");
 
@@ -87,6 +87,8 @@ public class OrderMessageServiceImpl implements OrderMessageService {
         log.info("deliverCallback:messageBody:{}", messageBody);
         ConnectionFactory connectionFactory = new ConnectionFactory();
         connectionFactory.setHost("localhost");
+        connectionFactory.setUsername("admin");
+        connectionFactory.setPassword("admin");
         try {
           //          获取队列中的对象,判断阶段做对应处处理
           OrderMessageDTO orderMessageDTO =

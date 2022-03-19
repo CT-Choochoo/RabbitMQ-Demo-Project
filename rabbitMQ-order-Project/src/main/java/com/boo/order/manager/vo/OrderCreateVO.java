@@ -8,7 +8,11 @@ import lombok.ToString;
 @Setter
 @ToString
 public class OrderCreateVO {
-    private Integer accountId;
-    private String address;
-    private Integer productId;
+  /** 帐户id */
+  private Integer accountId;
+
+  /** 地址 */
+  private String address;
+  /** 产品id */
+  private Integer productId;
 }

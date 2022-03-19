@@ -1,6 +1,6 @@
 package com.boo.ribbitmq.restaurant.config;
 
-import com.boo.order.manager.service.OrderMessageService;
+import com.boo.ribbitmq.restaurant.service.RestaurantMessageService;
 import java.io.IOException;
 import java.util.concurrent.TimeoutException;
 import lombok.extern.slf4j.Slf4j;
@@ -16,10 +16,11 @@ import org.springframework.context.annotation.Configuration;
 @Slf4j
 @Configuration
 public class RabbitConfig {
-  @Autowired OrderMessageService messageService;
+  @Autowired
+  RestaurantMessageService messageService;
 
   @Autowired
   public void startListenMessage() throws IOException, TimeoutException, InterruptedException {
-    messageService.1();
+    messageService.handleMessage();
   }
 }

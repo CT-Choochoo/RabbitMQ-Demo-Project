@@ -54,7 +54,9 @@ public class OrderDetailServiceImpl extends ServiceImpl<OrderDetailMapper, Order
     //  3.获取connection
     ConnectionFactory connectionFactory = new ConnectionFactory();
     connectionFactory.setHost("localhost");
-    //  4.获取channel
+    connectionFactory.setUsername("admin");
+    connectionFactory.setPassword("admin");
+    //  4.获取channel   
     try (Connection connection = connectionFactory.newConnection();
         Channel channel = connection.createChannel()) {
       String messageToSend = objectMapper.writeValueAsString(orderMessageDTO);
