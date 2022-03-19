@@ -1,7 +1,7 @@
 server:
   port: 8080
 
-# ???
+# 数据池设置
 spring:
   datasource:
     type: com.zaxxer.hikari.HikariDataSource
@@ -9,3 +9,8 @@ spring:
     driverClassName: com.mysql.cj.jdbc.Driver
     username: root
     password: 123456
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: guest
+    password: guest

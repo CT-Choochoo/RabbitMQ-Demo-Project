@@ -2,8 +2,10 @@ package com.boo.order.manager.po;
 
 import com.boo.order.manager.enums.OrderStatusEnum;
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.Date;
 import lombok.Data;
+import org.apache.tomcat.jni.Local;
 
 /**
  * order_detal 表对应的Entity
@@ -19,5 +21,5 @@ public class OrderDetailPO {
     private Integer settlementId;
     private Integer rewardId;
     private BigDecimal price;
-    private Date date;
+    private LocalDateTime date;
 }
