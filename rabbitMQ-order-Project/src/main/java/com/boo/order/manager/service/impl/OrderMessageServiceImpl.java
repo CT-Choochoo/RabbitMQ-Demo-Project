@@ -16,6 +16,7 @@ import java.io.IOException;
 import java.util.concurrent.TimeoutException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 @Slf4j
@@ -33,6 +34,7 @@ public class OrderMessageServiceImpl implements OrderMessageService {
    * @throws InterruptedException 中断异常
    */
   @Override
+  @Async
   public void handleMessage() throws IOException, TimeoutException, InterruptedException {
     //    1. 创建连接
     log.info("start linscening message");

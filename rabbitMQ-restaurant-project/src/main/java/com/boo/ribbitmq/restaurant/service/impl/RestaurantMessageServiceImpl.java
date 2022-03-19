@@ -18,6 +18,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.TimeoutException;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 /**
@@ -34,6 +35,7 @@ public class RestaurantMessageServiceImpl implements RestaurantMessageService {
   ObjectMapper objectMapper = new ObjectMapper();
   /** 处理消息 */
   @Override
+  @Async
   public void handleMessage() {
     ConnectionFactory factory = new ConnectionFactory();
     factory.setHost("localhost");
