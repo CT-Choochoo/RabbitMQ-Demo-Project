@@ -59,6 +59,7 @@ public class RestaurantMessageServiceImpl implements RestaurantMessageService {
       //      4.绑定队列和交换机设置路由key
       channel.queueBind("queue.restaurant", "exchange.order.restaurant", "key.restaurant");
       //      5.生成consumerTag
+      channel.basicQos(5);
       channel.basicConsume("queue.restaurant", false, deliverCallback, consumerTag -> {});
       while (true) {
         Thread.sleep(10000000);
@@ -96,14 +97,19 @@ public class RestaurantMessageServiceImpl implements RestaurantMessageService {
 
         String messageToSend = objectMapper.writeValueAsString(orderMessageDTO);
         //     设置手动签收多条
-        if (msg.getEnvelope().getDeliveryTag() % 3 == 0) {
-          channel.basicAck(msg.getEnvelope().getDeliveryTag(), true);
-        }
+        //        if (msg.getEnvelope().getDeliveryTag() % 3 == 0) {
+        //          channel.basicAck(msg.getEnvelope().getDeliveryTag(), true);
+        //        }
         //     设置手动签收单条
-//        channel.basicAck(msg.getEnvelope().getDeliveryTag(), false);
+        channel.basicAck(msg.getEnvelope().getDeliveryTag(), false);
         //     设置手动拒收,并开启重回队列
         //        channel.basicNack(msg.getEnvelope().getDeliveryTag(),false,true);
-
+//        模拟处理过程
+        try {
+          Thread.sleep(2000);
+        } catch (InterruptedException e) {
+          e.printStackTrace();
+        }
         log.info("发送给order，{}", messageToSend);
         channel.basicPublish(
             "exchange.order.restaurant", "key.order", null, messageToSend.getBytes());

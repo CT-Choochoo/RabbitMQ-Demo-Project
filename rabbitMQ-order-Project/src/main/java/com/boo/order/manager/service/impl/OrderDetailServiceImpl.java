@@ -19,8 +19,11 @@ import com.rabbitmq.client.ReturnCallback;
 import com.rabbitmq.client.ReturnListener;
 import java.io.IOException;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.concurrent.TimeoutException;
+import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -69,10 +72,70 @@ public class OrderDetailServiceImpl extends ServiceImpl<OrderDetailMapper, Order
         Channel channel = connection.createChannel()) {
       //    设置异常投递返回
       this.settingCallBackReturnListener(channel);
+
       String messageToSend = objectMapper.writeValueAsString(orderMessageDTO);
       //  5.发送消息给商家队列
       this.sendSingleMessageConfirm(
           channel, "exchange.order.restaurant", "key.restaurant", messageToSend.getBytes());
+    }
+  }
+
+  /**
+   * 创建订单列表
+   *
+   * @param list 列表
+   */
+  @Override
+  public void createOrderList(List<OrderCreateVO> list)
+      throws IOException, TimeoutException, InterruptedException {
+
+    final List<OrderDetail> collect =
+        list.stream()
+            .map(
+                item -> {
+                  OrderDetail orderDetail = orderDetailConvert.valueObject2Entity(item);
+                  orderDetail.setStatus(OrderStatusEnum.ORDER_CREATING);
+                  orderDetail.setDate(LocalDateTime.now());
+                  return orderDetail;
+                })
+            .collect(Collectors.toList());
+
+    //  1.收到订单，更新状态和时间并保存
+
+    this.saveBatch(collect);
+
+    //  2.获取connection
+    ConnectionFactory connectionFactory = new ConnectionFactory();
+    connectionFactory.setHost("localhost");
+    connectionFactory.setUsername("admin");
+    connectionFactory.setPassword("admin");
+
+    //  3.获取channel
+    try (Connection connection = connectionFactory.newConnection();
+        Channel channel = connection.createChannel()) {
+      //    设置异常投递返回
+      this.settingCallBackReturnListener(channel);
+
+      //  4.构建dto对象发送消息
+      final List<OrderMessageDTO> dtoList =
+          collect.stream()
+              .map(
+                  item -> {
+                    OrderMessageDTO orderMessageDTO =
+                        orderDetailConvert.entity2DataTransferObject(item);
+                    orderMessageDTO.setOrderStatus(OrderStatusEnum.ORDER_CREATING);
+                    return orderMessageDTO;
+                  })
+              .collect(Collectors.toList());
+      final ArrayList<String> arrayDto = new ArrayList<>(50);
+      for (OrderMessageDTO dto : dtoList) {
+        arrayDto.add(objectMapper.writeValueAsString(dto));
+      }
+      //  5.发送消息给商家队列
+      for (String str : arrayDto) {
+        this.sendSingleMessageConfirm(
+            channel, "exchange.order.restaurant", "key.restaurant", str.getBytes());
+      }
     }
   }
 

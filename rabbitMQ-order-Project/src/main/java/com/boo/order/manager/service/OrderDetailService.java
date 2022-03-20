@@ -4,6 +4,7 @@ import com.boo.order.manager.po.OrderDetail;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.boo.order.manager.vo.OrderCreateVO;
 import java.io.IOException;
+import java.util.List;
 import java.util.concurrent.TimeoutException;
 
 /**
@@ -22,5 +23,13 @@ public interface OrderDetailService extends IService<OrderDetail> {
    * @throws TimeoutException 超时异常
    */
   void createOrder(OrderCreateVO orderCreateVO)
+      throws IOException, TimeoutException, InterruptedException;
+
+  /**
+   * 创建订单列表
+   *
+   * @param list 列表
+   */
+  void createOrderList(List<OrderCreateVO> list)
       throws IOException, TimeoutException, InterruptedException;
 }
