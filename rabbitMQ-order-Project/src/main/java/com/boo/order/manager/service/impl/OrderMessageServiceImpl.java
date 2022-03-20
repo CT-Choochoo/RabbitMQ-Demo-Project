@@ -99,15 +99,19 @@ public class OrderMessageServiceImpl implements OrderMessageService {
 
           switch (entity.getStatus()) {
             case ORDER_CREATING:
+              log.info("订单创建完成，商家确认完毕，开始发送给骑手。。。。。");
               executeOrderCreating(orderMessageDTO, entity, connectionFactory);
               break;
             case RESTAURANT_CONFIRMED:
+              log.info("骑手已确认，更新信息，开始结算。。。。。");
               executeRestaurantConfirmed(orderMessageDTO, entity, connectionFactory);
               break;
             case DELIVERYMAN_CONFIRMED:
+              log.info("结算信息已确认，开始计算积分。。。。。");
               executeDeliverymanConfirmed(orderMessageDTO, entity, connectionFactory);
               break;
             case SETTLEMENT_CONFIRMED:
+              log.info("订单完成！");
               if (null != orderMessageDTO.getRewardId()) {
                 entity.setStatus(OrderStatusEnum.ORDER_CREATED);
                 entity.setRewardId(orderMessageDTO.getRewardId());

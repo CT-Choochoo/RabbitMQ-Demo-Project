@@ -67,10 +67,11 @@ public class OrderDetailServiceImpl extends ServiceImpl<OrderDetailMapper, Order
     //  4.获取channel
     try (Connection connection = connectionFactory.newConnection();
         Channel channel = connection.createChannel()) {
-
+      //    设置异常投递返回
+      this.settingCallBackReturnListener(channel);
       String messageToSend = objectMapper.writeValueAsString(orderMessageDTO);
       //  5.发送消息给商家队列
-      this.sendAsyncMessageConfirm(
+      this.sendSingleMessageConfirm(
           channel, "exchange.order.restaurant", "key.restaurant", messageToSend.getBytes());
     }
   }
@@ -87,6 +88,7 @@ public class OrderDetailServiceImpl extends ServiceImpl<OrderDetailMapper, Order
       throws IOException, InterruptedException {
     //      标记发送确认
     channel.confirmSelect();
+    log.info("发送给商家队列消息：[{}]", new String(msg));
     channel.basicPublish(exchangeName, routingKey, null, msg);
     log.info("message sent");
     //      等待消息发送成功
@@ -136,8 +138,7 @@ public class OrderDetailServiceImpl extends ServiceImpl<OrderDetailMapper, Order
       Channel channel, String exchangeName, String routingKey, byte[] msg)
       throws InterruptedException, IOException {
     channel.confirmSelect();
-    //    设置异常投递返回
-    this.settingCallBackReturnListener(channel);
+
     //    创建confirm异步监听
     final ConfirmListener listener =
         new ConfirmListener() {
@@ -156,8 +157,8 @@ public class OrderDetailServiceImpl extends ServiceImpl<OrderDetailMapper, Order
 
     for (int i = 0; i < 2; i++) {
       // mandatory 消息返回机制，保证消息正确投递到队列 此处故意写错routingKey
-      channel.basicPublish(exchangeName, routingKey + 1, true, null, msg);
-      //      channel.basicPublish(exchangeName, routingKey, true, null, msg);
+      //      channel.basicPublish(exchangeName, routingKey + 1, true, null, msg);
+      channel.basicPublish(exchangeName, routingKey, true, null, msg);
       log.info("message sent");
     }
     Thread.sleep(3000);

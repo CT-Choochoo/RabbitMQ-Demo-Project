@@ -35,6 +35,8 @@ public class RestaurantMessageServiceImpl implements RestaurantMessageService {
   @Autowired ProductService productService;
   @Autowired RestaurantService restaurantService;
   ObjectMapper objectMapper = new ObjectMapper();
+
+  Channel channel;
   /** 处理消息 */
   @Override
   @Async
@@ -48,6 +50,7 @@ public class RestaurantMessageServiceImpl implements RestaurantMessageService {
     try (Connection connection = factory.newConnection()) {
       //      1.创建信道
       final Channel channel = connection.createChannel();
+      this.channel = channel;
       //      2.声明交换机（name,type,是否持久化，如果未被使用是否自动删除，其他参数）
       channel.exchangeDeclare(
           "exchange.order.restaurant", BuiltinExchangeType.DIRECT, true, false, null);
@@ -56,7 +59,7 @@ public class RestaurantMessageServiceImpl implements RestaurantMessageService {
       //      4.绑定队列和交换机设置路由key
       channel.queueBind("queue.restaurant", "exchange.order.restaurant", "key.restaurant");
       //      5.生成consumerTag
-      channel.basicConsume("queue.restaurant", true, deliverCallback, consumerTag -> {});
+      channel.basicConsume("queue.restaurant", false, deliverCallback, consumerTag -> {});
       while (true) {
         Thread.sleep(10000000);
       }
@@ -75,34 +78,34 @@ public class RestaurantMessageServiceImpl implements RestaurantMessageService {
         factory.setHost("localhost");
         factory.setUsername("admin");
         factory.setPassword("admin");
-        try (Connection connection = factory.newConnection()) {
 
-          final byte[] body = msg.getBody();
-          final OrderMessageDTO orderMessageDTO =
-              objectMapper.readValue(body, OrderMessageDTO.class);
+        final byte[] body = msg.getBody();
+        final OrderMessageDTO orderMessageDTO = objectMapper.readValue(body, OrderMessageDTO.class);
 
-          final Integer productId = orderMessageDTO.getProductId();
-          final Product product = productService.getById(productId);
-          final Integer restaurantId = product.getRestaurantId();
-          final Restaurant restaurant = restaurantService.getById(restaurantId);
-          if (ProductStatusEnum.AVALIABLE == product.getStatus()
-              && RestaurantStatusEnum.OPEN == restaurant.getStatus()) {
-            orderMessageDTO.setConfirmed(true);
-            orderMessageDTO.setPrice(product.getPrice());
-          } else {
-            orderMessageDTO.setConfirmed(false);
-          }
-
-          final Channel channel = connection.createChannel();
-          String messageToSend = objectMapper.writeValueAsString(orderMessageDTO);
-          log.info("发送给order，{}",messageToSend);
-          channel.basicPublish(
-              "exchange.order.restaurant",
-              "key.order",
-              null,
-              messageToSend.getBytes(StandardCharsets.UTF_8));
-        } catch (TimeoutException e) {
-          e.printStackTrace();
+        final Integer productId = orderMessageDTO.getProductId();
+        final Product product = productService.getById(productId);
+        final Integer restaurantId = product.getRestaurantId();
+        final Restaurant restaurant = restaurantService.getById(restaurantId);
+        if (ProductStatusEnum.AVALIABLE == product.getStatus()
+            && RestaurantStatusEnum.OPEN == restaurant.getStatus()) {
+          orderMessageDTO.setConfirmed(true);
+          orderMessageDTO.setPrice(product.getPrice());
+        } else {
+          orderMessageDTO.setConfirmed(false);
         }
+
+        String messageToSend = objectMapper.writeValueAsString(orderMessageDTO);
+        //     设置手动签收多条
+        if (msg.getEnvelope().getDeliveryTag() % 3 == 0) {
+          channel.basicAck(msg.getEnvelope().getDeliveryTag(), true);
+        }
+        //     设置手动签收单条
+//        channel.basicAck(msg.getEnvelope().getDeliveryTag(), false);
+        //     设置手动拒收,并开启重回队列
+        //        channel.basicNack(msg.getEnvelope().getDeliveryTag(),false,true);
+
+        log.info("发送给order，{}", messageToSend);
+        channel.basicPublish(
+            "exchange.order.restaurant", "key.order", null, messageToSend.getBytes());
       };
 }

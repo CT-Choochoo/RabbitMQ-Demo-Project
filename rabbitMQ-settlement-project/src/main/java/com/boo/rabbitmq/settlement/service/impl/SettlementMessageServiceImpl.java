@@ -73,7 +73,6 @@ public class SettlementMessageServiceImpl implements SettlementMessageService {
                 orderMessageDTO.getAccountId(), orderMessageDTO.getPrice()));
         settlementService.save(settlement);
         orderMessageDTO.setSettlementId(settlement.getId());
-//        orderMessageDTO.setOrderStatus(OrderStatusEnum.SETTLEMENT_CONFIRMED);
         log.info("handleOrderService:settlementOrderDTO:{}", orderMessageDTO);
 
         try (Connection connection = connectionFactory.newConnection();
