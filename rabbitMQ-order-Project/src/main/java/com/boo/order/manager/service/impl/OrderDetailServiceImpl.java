@@ -9,12 +9,17 @@ import com.boo.order.manager.po.OrderDetail;
 import com.boo.order.manager.service.OrderDetailService;
 import com.boo.order.manager.vo.OrderCreateVO;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.rabbitmq.client.AMQP.BasicProperties;
 import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.ConfirmListener;
 import com.rabbitmq.client.Connection;
 import com.rabbitmq.client.ConnectionFactory;
+import com.rabbitmq.client.Return;
+import com.rabbitmq.client.ReturnCallback;
+import com.rabbitmq.client.ReturnListener;
 import java.io.IOException;
 import java.time.LocalDateTime;
+import java.util.Arrays;
 import java.util.concurrent.TimeoutException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -131,25 +136,61 @@ public class OrderDetailServiceImpl extends ServiceImpl<OrderDetailMapper, Order
       Channel channel, String exchangeName, String routingKey, byte[] msg)
       throws InterruptedException, IOException {
     channel.confirmSelect();
+    //    设置异常投递返回
+    this.settingCallBackReturnListener(channel);
     //    创建confirm异步监听
     final ConfirmListener listener =
         new ConfirmListener() {
           @Override
-          public void handleAck(long deliveryTag, boolean multiple) throws IOException {
+          public void handleAck(long deliveryTag, boolean multiple) {
             log.info("调用成功！ deliveryTag:{},是否多条：{}", deliveryTag, multiple);
           }
 
           @Override
-          public void handleNack(long deliveryTag, boolean multiple) throws IOException {
+          public void handleNack(long deliveryTag, boolean multiple) {
             log.info("调用失败！ deliveryTag:{},是否多条：{}", deliveryTag, multiple);
           }
         };
     //  设置到channel
     channel.addConfirmListener(listener);
-    for (int i = 0; i < 9; i++) {
-      channel.basicPublish(exchangeName, routingKey, null, msg);
+
+    for (int i = 0; i < 2; i++) {
+      // mandatory 消息返回机制，保证消息正确投递到队列 此处故意写错routingKey
+      channel.basicPublish(exchangeName, routingKey + 1, true, null, msg);
+      //      channel.basicPublish(exchangeName, routingKey, true, null, msg);
       log.info("message sent");
     }
-    Thread.sleep(5000);
+    Thread.sleep(3000);
+  }
+
+  /**
+   * 设置回调返回侦听器
+   *
+   * @param channel 信道
+   */
+  private void settingCallBackReturnListener(Channel channel) {
+    channel.addReturnListener(
+        returnMessage -> {
+          log.info("发送消息无法路由！Message Return：[{}]", returnMessage.toString());
+          //              TODO 消息投递异常
+        });
+  }
+
+  /**
+   * @param channel 信道
+   */
+  private void settingNewListenerReturnListener(Channel channel) {
+    channel.addReturnListener(
+        (replyCode, replyText, exchange, routingKey1, properties, body) -> {
+          log.info(
+              "发送消息无法路由！Message Return：replyCode：{},replyText:{},exchange:{},routingKey:{},BasicProperties:{},body:{}",
+              replyCode,
+              replyText,
+              exchange,
+              routingKey1,
+              properties,
+              new String(body));
+          //              TODO 消息投递异常
+        });
   }
 }
