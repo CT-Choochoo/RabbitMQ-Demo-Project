@@ -37,7 +37,7 @@ public class OrderMessageServiceImpl implements OrderMessageService {
   @Async
   public void handleMessage() throws IOException, TimeoutException, InterruptedException {
     //    1. 创建连接
-    log.info("start linscening message");
+    log.info("start listening message");
     ConnectionFactory connectionFactory = new ConnectionFactory();
     connectionFactory.setHost("localhost");
     connectionFactory.setUsername("admin");
@@ -64,7 +64,7 @@ public class OrderMessageServiceImpl implements OrderMessageService {
       /*---------------------settlement 声明结算交换机 、binding key（fanout可以不设置）---------------------*/
 
       channel.exchangeDeclare(
-          "exchange.order.settlement", BuiltinExchangeType.FANOUT, true, false, null);
+          "exchange.settlement.order", BuiltinExchangeType.FANOUT, true, false, null);
 
       channel.queueBind("queue.order", "exchange.settlement.order", "key.order");
 
@@ -77,7 +77,7 @@ public class OrderMessageServiceImpl implements OrderMessageService {
       // 生成一个服务器生成的 consumerTag
       channel.basicConsume("queue.order", true, deliverCallback, consumerTag -> {});
       while (true) {
-        Thread.sleep(100000);
+        Thread.sleep(10000000);
       }
     }
   }

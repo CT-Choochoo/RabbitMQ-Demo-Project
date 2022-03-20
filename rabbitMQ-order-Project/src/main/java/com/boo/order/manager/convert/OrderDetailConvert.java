@@ -4,6 +4,7 @@ import com.boo.order.manager.dto.OrderMessageDTO;
 import com.boo.order.manager.po.OrderDetail;
 import com.boo.order.manager.vo.OrderCreateVO;
 import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
 
 @Mapper(componentModel = "spring")
 public interface OrderDetailConvert {
@@ -30,5 +31,6 @@ public interface OrderDetailConvert {
    * @param entity 实体
    * @return {@link OrderMessageDTO}
    */
+  @Mapping(source = "id", target = "orderId")
   OrderMessageDTO entity2DataTransferObject(OrderDetail entity);
 }

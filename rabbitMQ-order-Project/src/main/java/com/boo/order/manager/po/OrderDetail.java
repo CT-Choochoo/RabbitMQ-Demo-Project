@@ -18,7 +18,7 @@ public class OrderDetail implements Serializable {
   /**
    * 订单id
    */
-  @TableId(value = "id", type = IdType.INPUT)
+  @TableId(value = "id", type = IdType.AUTO)
   private Integer id;
 
   /**

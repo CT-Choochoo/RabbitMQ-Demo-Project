@@ -2,6 +2,7 @@ package com.boo.rabbitmq.settlement.service.impl;
 
 import com.boo.rabbitmq.settlement.dto.OrderMessageDTO;
 import com.boo.rabbitmq.settlement.entity.Settlement;
+import com.boo.rabbitmq.settlement.enums.OrderStatusEnum;
 import com.boo.rabbitmq.settlement.enums.SettlementStatusEnum;
 import com.boo.rabbitmq.settlement.service.SettlementMessageService;
 import com.boo.rabbitmq.settlement.service.SettlementService;
@@ -16,6 +17,7 @@ import java.time.LocalDateTime;
 import java.util.concurrent.TimeoutException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
@@ -30,7 +32,7 @@ import org.springframework.stereotype.Service;
 public class SettlementMessageServiceImpl implements SettlementMessageService {
 
   @Autowired SettlementService settlementService;
-  @Autowired ConnectionFactory connectionFactory;
+  @Autowired @Lazy ConnectionFactory connectionFactory;
   ObjectMapper objectMapper = new ObjectMapper();
   /** 处理消息 */
   @Override
@@ -47,11 +49,11 @@ public class SettlementMessageServiceImpl implements SettlementMessageService {
       channel.queueDeclare(queueName, true, false, false, null);
       channel.queueBind(queueName, exchangeName, routingKey);
       channel.basicConsume(queueName, true, deliverCallback, consumerTag -> {});
+      while (true) {
+        Thread.sleep(10000000);
+      }
     } catch (IOException | TimeoutException e) {
       e.printStackTrace();
-    }
-    while (true) {
-      Thread.sleep(100000);
     }
   }
 
@@ -71,6 +73,7 @@ public class SettlementMessageServiceImpl implements SettlementMessageService {
                 orderMessageDTO.getAccountId(), orderMessageDTO.getPrice()));
         settlementService.save(settlement);
         orderMessageDTO.setSettlementId(settlement.getId());
+//        orderMessageDTO.setOrderStatus(OrderStatusEnum.SETTLEMENT_CONFIRMED);
         log.info("handleOrderService:settlementOrderDTO:{}", orderMessageDTO);
 
         try (Connection connection = connectionFactory.newConnection();

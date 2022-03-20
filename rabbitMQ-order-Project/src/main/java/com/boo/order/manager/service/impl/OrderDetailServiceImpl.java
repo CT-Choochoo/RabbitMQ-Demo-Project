@@ -32,6 +32,7 @@ public class OrderDetailServiceImpl extends ServiceImpl<OrderDetailMapper, Order
 
   ObjectMapper objectMapper = new ObjectMapper();
 
+  @Autowired OrderDetailMapper mapper;
   @Autowired OrderDetailConvert orderDetailConvert;
 
   /**
@@ -43,14 +44,14 @@ public class OrderDetailServiceImpl extends ServiceImpl<OrderDetailMapper, Order
    */
   @Override
   public void createOrder(OrderCreateVO orderCreateVO) throws IOException, TimeoutException {
-    log.info("createOrder:orderCreateVO:{}", orderCreateVO);
     //  1.收到订单，更新状态和时间并保存
     OrderDetail orderDetail = orderDetailConvert.valueObject2Entity(orderCreateVO);
     orderDetail.setStatus(OrderStatusEnum.ORDER_CREATING);
     orderDetail.setDate(LocalDateTime.now());
-    this.save(orderDetail);
+    final int insert = mapper.insert(orderDetail);
     //  2.构建dto对象发送消息
     OrderMessageDTO orderMessageDTO = orderDetailConvert.entity2DataTransferObject(orderDetail);
+    orderMessageDTO.setOrderStatus(OrderStatusEnum.ORDER_CREATING);
     //  3.获取connection
     ConnectionFactory connectionFactory = new ConnectionFactory();
     connectionFactory.setHost("localhost");

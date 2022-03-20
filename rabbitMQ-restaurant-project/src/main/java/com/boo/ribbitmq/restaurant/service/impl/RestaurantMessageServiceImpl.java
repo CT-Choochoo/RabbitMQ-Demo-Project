@@ -17,6 +17,7 @@ import com.rabbitmq.client.DeliverCallback;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.TimeoutException;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
@@ -28,6 +29,7 @@ import org.springframework.stereotype.Service;
  * @date 2022/03/19
  */
 @Service
+@Slf4j
 public class RestaurantMessageServiceImpl implements RestaurantMessageService {
 
   @Autowired ProductService productService;
@@ -37,6 +39,7 @@ public class RestaurantMessageServiceImpl implements RestaurantMessageService {
   @Override
   @Async
   public void handleMessage() throws InterruptedException {
+    log.info("start listening message");
     ConnectionFactory factory = new ConnectionFactory();
     factory.setHost("localhost");
     factory.setUsername("admin");
@@ -54,11 +57,11 @@ public class RestaurantMessageServiceImpl implements RestaurantMessageService {
       channel.queueBind("queue.restaurant", "exchange.order.restaurant", "key.restaurant");
       //      5.生成consumerTag
       channel.basicConsume("queue.restaurant", true, deliverCallback, consumerTag -> {});
+      while (true) {
+        Thread.sleep(10000000);
+      }
     } catch (IOException | TimeoutException e) {
       e.printStackTrace();
-    }
-    while (true) {
-      Thread.sleep(100000);
     }
   }
 
@@ -92,6 +95,7 @@ public class RestaurantMessageServiceImpl implements RestaurantMessageService {
 
           final Channel channel = connection.createChannel();
           String messageToSend = objectMapper.writeValueAsString(orderMessageDTO);
+          log.info("发送给order，{}",messageToSend);
           channel.basicPublish(
               "exchange.order.restaurant",
               "key.order",

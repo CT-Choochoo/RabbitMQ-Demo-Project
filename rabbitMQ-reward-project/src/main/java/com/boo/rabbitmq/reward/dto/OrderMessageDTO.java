@@ -1,6 +1,6 @@
-package com.boo.rabbitmq.settlement.dto;
+package com.boo.rabbitmq.reward.dto;
 
-import com.boo.rabbitmq.settlement.enums.OrderStatusEnum;
+import com.boo.rabbitmq.reward.enums.OrderStatusEnum;
 import java.math.BigDecimal;
 import lombok.Getter;
 import lombok.Setter;

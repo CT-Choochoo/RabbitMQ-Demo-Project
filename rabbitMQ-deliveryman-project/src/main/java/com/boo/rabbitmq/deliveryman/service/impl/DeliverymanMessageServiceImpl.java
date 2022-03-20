@@ -17,6 +17,7 @@ import java.util.List;
 import java.util.concurrent.TimeoutException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
@@ -30,7 +31,7 @@ import org.springframework.stereotype.Service;
 @Service
 public class DeliverymanMessageServiceImpl implements DeliverymanMessageService {
 
-  @Autowired ConnectionFactory factory;
+  @Autowired @Lazy ConnectionFactory factory;
   @Autowired DeliverymanService deliverymanService;
 
   ObjectMapper objectMapper = new ObjectMapper();
@@ -58,7 +59,7 @@ public class DeliverymanMessageServiceImpl implements DeliverymanMessageService 
     //    定义消息消费方法
     channel.basicConsume(queueName, true, deliverymanCallback, consumerTag -> {});
     while (true) {
-      Thread.sleep(100000);
+      Thread.sleep(10000000);
     }
   }
 
@@ -81,7 +82,7 @@ public class DeliverymanMessageServiceImpl implements DeliverymanMessageService 
           final Channel channel = connection.createChannel();
           String messageToSend = objectMapper.writeValueAsString(orderMessageDTO);
           channel.basicPublish(
-              "exchange.order.restaurant", "key.order", null, messageToSend.getBytes());
+              "exchange.order.deliveryman", "key.order", null, messageToSend.getBytes());
         } catch (TimeoutException e) {
           e.printStackTrace();
         }
