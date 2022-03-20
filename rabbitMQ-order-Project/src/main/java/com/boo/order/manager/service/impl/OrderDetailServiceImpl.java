@@ -9,7 +9,9 @@ import com.boo.order.manager.po.OrderDetail;
 import com.boo.order.manager.service.OrderDetailService;
 import com.boo.order.manager.vo.OrderCreateVO;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.rabbitmq.client.AMQP;
 import com.rabbitmq.client.AMQP.BasicProperties;
+import com.rabbitmq.client.AMQP.BasicProperties.Builder;
 import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.ConfirmListener;
 import com.rabbitmq.client.Connection;
@@ -74,6 +76,7 @@ public class OrderDetailServiceImpl extends ServiceImpl<OrderDetailMapper, Order
       this.settingCallBackReturnListener(channel);
 
       String messageToSend = objectMapper.writeValueAsString(orderMessageDTO);
+
       //  5.发送消息给商家队列
       this.sendSingleMessageConfirm(
           channel, "exchange.order.restaurant", "key.restaurant", messageToSend.getBytes());
@@ -152,6 +155,8 @@ public class OrderDetailServiceImpl extends ServiceImpl<OrderDetailMapper, Order
     //      标记发送确认
     channel.confirmSelect();
     log.info("发送给商家队列消息：[{}]", new String(msg));
+    //    设置消息超时时间
+//    final BasicProperties props = new Builder().expiration("15000").build();
     channel.basicPublish(exchangeName, routingKey, null, msg);
     log.info("message sent");
     //      等待消息发送成功

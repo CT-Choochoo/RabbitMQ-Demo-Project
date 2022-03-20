@@ -13,6 +13,7 @@ import com.rabbitmq.client.Connection;
 import com.rabbitmq.client.ConnectionFactory;
 import com.rabbitmq.client.DeliverCallback;
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.concurrent.TimeoutException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -50,6 +51,7 @@ public class OrderMessageServiceImpl implements OrderMessageService {
 
       /*---------------------restaurant声明商家交换机 、binding key---------------------*/
       // 声明exchange
+
       channel.exchangeDeclare(
           "exchange.order.restaurant", BuiltinExchangeType.DIRECT, true, false, null);
       // 绑定交换机和队列
@@ -72,6 +74,11 @@ public class OrderMessageServiceImpl implements OrderMessageService {
 
       channel.exchangeDeclare(
           "exchange.order.reward", BuiltinExchangeType.TOPIC, true, false, null);
+
+      /*---------------------死信队列---------------------*/
+      channel.exchangeDeclare("exchange.dlx", BuiltinExchangeType.TOPIC, true, false, null);
+      channel.queueDeclare("queue.dlx", true, false, false, null);
+      channel.queueBind("queue.dlx", "exchange.dlx", "#");
 
       channel.queueBind("queue.order", "exchange.order.reward", "key.order");
       // 生成一个服务器生成的 consumerTag

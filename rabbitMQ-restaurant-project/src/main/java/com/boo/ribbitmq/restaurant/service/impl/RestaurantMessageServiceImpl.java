@@ -16,6 +16,7 @@ import com.rabbitmq.client.ConnectionFactory;
 import com.rabbitmq.client.DeliverCallback;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
 import java.util.concurrent.TimeoutException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -54,8 +55,15 @@ public class RestaurantMessageServiceImpl implements RestaurantMessageService {
       //      2.声明交换机（name,type,是否持久化，如果未被使用是否自动删除，其他参数）
       channel.exchangeDeclare(
           "exchange.order.restaurant", BuiltinExchangeType.DIRECT, true, false, null);
+      final HashMap<String, Object> map = new HashMap<>(16);
+//      设置超时时间 超过时间进入死信队列
+      map.put("x-message-ttl", 150000);
+//      设置队列最大长度  超过长度进入死信队列
+      map.put("x-max-length", 5);
+//      设置死信交换机
+      map.put("x-dead-letter-exchange", "exchange.dlx");
       //      3，声明队列 （名称，是否持久化，是否独占，如果未被使用是都删除，其他参数）
-      channel.queueDeclare("queue.restaurant", true, false, false, null);
+      channel.queueDeclare("queue.restaurant", true, false, false, map);
       //      4.绑定队列和交换机设置路由key
       channel.queueBind("queue.restaurant", "exchange.order.restaurant", "key.restaurant");
       //      5.生成consumerTag
@@ -101,10 +109,10 @@ public class RestaurantMessageServiceImpl implements RestaurantMessageService {
         //          channel.basicAck(msg.getEnvelope().getDeliveryTag(), true);
         //        }
         //     设置手动签收单条
-        channel.basicAck(msg.getEnvelope().getDeliveryTag(), false);
-        //     设置手动拒收,并开启重回队列
-        //        channel.basicNack(msg.getEnvelope().getDeliveryTag(),false,true);
-//        模拟处理过程
+        //        channel.basicAck(msg.getEnvelope().getDeliveryTag(), false);
+        //     设置手动拒收,(标记，是否批量，是否重回队列-如果不回队列，切配置了死信则会回到死信队列中)
+        channel.basicNack(msg.getEnvelope().getDeliveryTag(), false, false);
+        //        模拟处理过程
         try {
           Thread.sleep(2000);
         } catch (InterruptedException e) {
