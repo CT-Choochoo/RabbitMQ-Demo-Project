@@ -20,9 +20,10 @@ public class OrderController {
   @Autowired OrderDetailService orderService;
 
   @PostMapping("/orders")
-  public void createOrder(@RequestBody OrderCreateVO orderCreateDTO)
-      throws IOException, TimeoutException {
+  public String createOrder(@RequestBody OrderCreateVO orderCreateDTO)
+      throws IOException, TimeoutException, InterruptedException {
     log.info("createOrder:orderCreateDTO:{}", orderCreateDTO);
     orderService.createOrder(orderCreateDTO);
+    return "Success!";
   }
 }

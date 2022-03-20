@@ -21,5 +21,6 @@ public interface OrderDetailService extends IService<OrderDetail> {
    * @throws IOException IO Exception
    * @throws TimeoutException 超时异常
    */
-  void createOrder(OrderCreateVO orderCreateVO) throws IOException, TimeoutException;
+  void createOrder(OrderCreateVO orderCreateVO)
+      throws IOException, TimeoutException, InterruptedException;
 }
