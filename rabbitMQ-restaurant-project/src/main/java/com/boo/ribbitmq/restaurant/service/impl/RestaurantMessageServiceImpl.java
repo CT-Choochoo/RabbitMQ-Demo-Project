@@ -110,7 +110,7 @@ public class RestaurantMessageServiceImpl implements RestaurantMessageService {
         //        }
         //     设置手动签收单条
         //        channel.basicAck(msg.getEnvelope().getDeliveryTag(), false);
-        //     设置手动拒收,(标记，是否批量，是否重回队列-如果不回队列，切配置了死信则会回到死信队列中)
+        //     设置手动拒收,  (标记，是否批量，是否重回队列-如果不回队列，切配置了死信则会回到死信队列中)
         channel.basicNack(msg.getEnvelope().getDeliveryTag(), false, false);
         //        模拟处理过程
         try {

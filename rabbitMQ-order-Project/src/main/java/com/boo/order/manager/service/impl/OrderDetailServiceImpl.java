@@ -9,25 +9,23 @@ import com.boo.order.manager.po.OrderDetail;
 import com.boo.order.manager.service.OrderDetailService;
 import com.boo.order.manager.vo.OrderCreateVO;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.rabbitmq.client.AMQP;
-import com.rabbitmq.client.AMQP.BasicProperties;
-import com.rabbitmq.client.AMQP.BasicProperties.Builder;
 import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.ConfirmListener;
-import com.rabbitmq.client.Connection;
-import com.rabbitmq.client.ConnectionFactory;
-import com.rabbitmq.client.Return;
-import com.rabbitmq.client.ReturnCallback;
-import com.rabbitmq.client.ReturnListener;
 import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.amqp.core.Message;
+import org.springframework.amqp.rabbit.connection.Connection;
+import org.springframework.amqp.rabbit.connection.ConnectionFactory;
+import org.springframework.amqp.rabbit.connection.CorrelationData;
+import org.springframework.amqp.rabbit.core.ChannelCallback;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 
 /**
@@ -45,17 +43,17 @@ public class OrderDetailServiceImpl extends ServiceImpl<OrderDetailMapper, Order
 
   @Autowired OrderDetailMapper mapper;
   @Autowired OrderDetailConvert orderDetailConvert;
+  @Autowired @Lazy ConnectionFactory connectionFactory;
+  @Autowired @Lazy RabbitTemplate rabbitTemplate;
 
   /**
    * 创建订单
    *
    * @param orderCreateVO 订单创建签证官
    * @throws IOException IO Exception
-   * @throws TimeoutException 超时异常
    */
   @Override
-  public void createOrder(OrderCreateVO orderCreateVO)
-      throws IOException, TimeoutException, InterruptedException {
+  public void createOrder(OrderCreateVO orderCreateVO) throws IOException {
     //  1.收到订单，更新状态和时间并保存
     OrderDetail orderDetail = orderDetailConvert.valueObject2Entity(orderCreateVO);
     orderDetail.setStatus(OrderStatusEnum.ORDER_CREATING);
@@ -64,23 +62,12 @@ public class OrderDetailServiceImpl extends ServiceImpl<OrderDetailMapper, Order
     //  2.构建dto对象发送消息
     OrderMessageDTO orderMessageDTO = orderDetailConvert.entity2DataTransferObject(orderDetail);
     orderMessageDTO.setOrderStatus(OrderStatusEnum.ORDER_CREATING);
-    //  3.获取connection
-    ConnectionFactory connectionFactory = new ConnectionFactory();
-    connectionFactory.setHost("localhost");
-    connectionFactory.setUsername("admin");
-    connectionFactory.setPassword("admin");
-    //  4.获取channel
-    try (Connection connection = connectionFactory.newConnection();
-        Channel channel = connection.createChannel()) {
-      //    设置异常投递返回
-      this.settingCallBackReturnListener(channel);
-
-      String messageToSend = objectMapper.writeValueAsString(orderMessageDTO);
-
-      //  5.发送消息给商家队列
-      this.sendSingleMessageConfirm(
-          channel, "exchange.order.restaurant", "key.restaurant", messageToSend.getBytes());
-    }
+    String messageToSend = objectMapper.writeValueAsString(orderMessageDTO);
+    final CorrelationData correlationData = new CorrelationData();
+    correlationData.setId(orderDetail.getId().toString());
+    //  5.发送消息给商家队列
+    rabbitTemplate.convertAndSend(
+        "exchange.order.restaurant", "key.restaurant", orderMessageDTO.toString(),correlationData);
   }
 
   /**
@@ -108,14 +95,10 @@ public class OrderDetailServiceImpl extends ServiceImpl<OrderDetailMapper, Order
     this.saveBatch(collect);
 
     //  2.获取connection
-    ConnectionFactory connectionFactory = new ConnectionFactory();
-    connectionFactory.setHost("localhost");
-    connectionFactory.setUsername("admin");
-    connectionFactory.setPassword("admin");
 
     //  3.获取channel
-    try (Connection connection = connectionFactory.newConnection();
-        Channel channel = connection.createChannel()) {
+    try (Connection connection = connectionFactory.createConnection();
+        Channel channel = connection.createChannel(false)) {
       //    设置异常投递返回
       this.settingCallBackReturnListener(channel);
 
@@ -156,7 +139,7 @@ public class OrderDetailServiceImpl extends ServiceImpl<OrderDetailMapper, Order
     channel.confirmSelect();
     log.info("发送给商家队列消息：[{}]", new String(msg));
     //    设置消息超时时间
-//    final BasicProperties props = new Builder().expiration("15000").build();
+    //    final BasicProperties props = new Builder().expiration("15000").build();
     channel.basicPublish(exchangeName, routingKey, null, msg);
     log.info("message sent");
     //      等待消息发送成功

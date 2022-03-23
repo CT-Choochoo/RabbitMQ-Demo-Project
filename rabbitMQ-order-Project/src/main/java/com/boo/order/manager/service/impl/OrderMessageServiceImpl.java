@@ -7,13 +7,11 @@ import com.boo.order.manager.service.OrderDetailService;
 import com.boo.order.manager.service.OrderMessageService;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.rabbitmq.client.BuiltinExchangeType;
 import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.Connection;
 import com.rabbitmq.client.ConnectionFactory;
 import com.rabbitmq.client.DeliverCallback;
 import java.io.IOException;
-import java.util.HashMap;
 import java.util.concurrent.TimeoutException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -40,48 +38,9 @@ public class OrderMessageServiceImpl implements OrderMessageService {
     //    1. 创建连接
     log.info("start listening message");
     ConnectionFactory connectionFactory = new ConnectionFactory();
-    connectionFactory.setHost("localhost");
-    connectionFactory.setUsername("admin");
-    connectionFactory.setPassword("admin");
     try (Connection connection = connectionFactory.newConnection();
         Channel channel = connection.createChannel()) {
 
-      // 声明队列
-      channel.queueDeclare("queue.order", true, false, false, null);
-
-      /*---------------------restaurant声明商家交换机 、binding key---------------------*/
-      // 声明exchange
-
-      channel.exchangeDeclare(
-          "exchange.order.restaurant", BuiltinExchangeType.DIRECT, true, false, null);
-      // 绑定交换机和队列
-      channel.queueBind("queue.order", "exchange.order.restaurant", "key.order");
-
-      /*---------------------deliveryman 声明骑手交换机 、binding key---------------------*/
-      channel.exchangeDeclare(
-          "exchange.order.deliveryman", BuiltinExchangeType.DIRECT, true, false, null);
-
-      channel.queueBind("queue.order", "exchange.order.deliveryman", "key.order");
-
-      /*---------------------settlement 声明结算交换机 、binding key（fanout可以不设置）---------------------*/
-
-      channel.exchangeDeclare(
-          "exchange.settlement.order", BuiltinExchangeType.FANOUT, true, false, null);
-
-      channel.queueBind("queue.order", "exchange.settlement.order", "key.order");
-
-      /*---------------------reward 声明积分交换机，routing key---------------------*/
-
-      channel.exchangeDeclare(
-          "exchange.order.reward", BuiltinExchangeType.TOPIC, true, false, null);
-
-      /*---------------------死信队列---------------------*/
-      channel.exchangeDeclare("exchange.dlx", BuiltinExchangeType.TOPIC, true, false, null);
-      channel.queueDeclare("queue.dlx", true, false, false, null);
-      channel.queueBind("queue.dlx", "exchange.dlx", "#");
-
-      channel.queueBind("queue.order", "exchange.order.reward", "key.order");
-      // 生成一个服务器生成的 consumerTag
       channel.basicConsume("queue.order", true, deliverCallback, consumerTag -> {});
       while (true) {
         Thread.sleep(10000000);
