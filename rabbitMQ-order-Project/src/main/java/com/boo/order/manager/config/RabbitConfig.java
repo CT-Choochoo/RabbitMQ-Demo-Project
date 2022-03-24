@@ -1,13 +1,14 @@
 package com.boo.order.manager.config;
 
+import com.boo.order.manager.dto.OrderMessageDTO;
 import com.boo.order.manager.service.OrderMessageService;
-import java.io.IOException;
-import java.util.concurrent.TimeoutException;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.amqp.core.AcknowledgeMode;
 import org.springframework.amqp.core.Binding;
 import org.springframework.amqp.core.DirectExchange;
 import org.springframework.amqp.core.Exchange;
 import org.springframework.amqp.core.FanoutExchange;
+import org.springframework.amqp.core.MessageProperties;
 import org.springframework.amqp.core.Queue;
 import org.springframework.amqp.core.ReturnedMessage;
 import org.springframework.amqp.core.TopicExchange;
@@ -17,6 +18,10 @@ import org.springframework.amqp.rabbit.connection.ConnectionFactory;
 import org.springframework.amqp.rabbit.connection.CorrelationData;
 import org.springframework.amqp.rabbit.core.RabbitAdmin;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.amqp.rabbit.listener.SimpleMessageListenerContainer;
+import org.springframework.amqp.rabbit.listener.adapter.MessageListenerAdapter;
+import org.springframework.amqp.support.converter.ClassMapper;
+import org.springframework.amqp.support.converter.Jackson2JsonMessageConverter;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -31,11 +36,6 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class RabbitConfig {
   @Autowired OrderMessageService messageService;
-
-  @Autowired
-  public void startListenMessage() throws IOException, TimeoutException, InterruptedException {
-    messageService.handleMessage();
-  }
   /*---------------------restaurant---------------------*/
   @Bean
   public Exchange exchange1() {
@@ -52,7 +52,7 @@ public class RabbitConfig {
     return new Binding(
         "queue.order",
         Binding.DestinationType.QUEUE,
-        "exchange.order.deliveryman",
+        "exchange.order.restaurant",
         "key.order",
         null);
   }
@@ -172,9 +172,53 @@ public class RabbitConfig {
            */
           @Override
           public void confirm(CorrelationData correlationData, boolean ack, String cause) {
-            log.info("ConfirmCallback... correlationData: [{}],ack:[{}],cause:[{}]", correlationData, ack, cause);
+            log.info(
+                "ConfirmCallback... correlationData: [{}],ack:[{}],cause:[{}]",
+                correlationData,
+                ack,
+                cause);
           }
         });
     return rabbitTemplate;
+  }
+
+  @Bean
+  public SimpleMessageListenerContainer messageListenerContainer(
+      ConnectionFactory connectionFactory) {
+    SimpleMessageListenerContainer messageListenerContainer =
+        new SimpleMessageListenerContainer(connectionFactory);
+    messageListenerContainer.setQueueNames("queue.order");
+    messageListenerContainer.setConcurrentConsumers(1);
+    messageListenerContainer.setMaxConcurrentConsumers(3);
+    messageListenerContainer.setAcknowledgeMode(AcknowledgeMode.AUTO);
+    messageListenerContainer.setMessageListener(message -> log.info("message:{}", message));
+    messageListenerContainer.setPrefetchCount(2);
+    messageListenerContainer.setAcknowledgeMode(AcknowledgeMode.MANUAL);
+//    messageListenerContainer.setMessageListener(
+//        (ChannelAwareMessageListener)
+//            (message, channel) -> {
+//              messageService.publishHandle(message.getBody());
+//              assert channel != null;
+//              //              channel.basicAck(message.getMessageProperties().getDeliveryTag(),
+//              // false);
+//            });
+
+    MessageListenerAdapter messageListenerAdapter = new MessageListenerAdapter();
+    messageListenerAdapter.setDelegate(messageService);
+    messageListenerContainer.setMessageListener(messageListenerAdapter);
+    Jackson2JsonMessageConverter messageConverter = new Jackson2JsonMessageConverter();
+    messageConverter.setClassMapper(new ClassMapper() {
+      @Override
+      public void fromClass(Class<?> clazz, MessageProperties properties) {
+
+      }
+
+      @Override
+      public Class<?> toClass(MessageProperties properties) {
+        return OrderMessageDTO.class;
+      }
+    });
+    messageListenerAdapter.setMessageConverter(messageConverter);
+    return messageListenerContainer;
   }
 }

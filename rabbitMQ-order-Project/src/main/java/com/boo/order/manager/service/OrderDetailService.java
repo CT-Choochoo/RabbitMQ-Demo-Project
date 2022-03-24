@@ -21,6 +21,7 @@ public interface OrderDetailService extends IService<OrderDetail> {
    * @param orderCreateVO 订单创建签证官
    * @throws IOException IO Exception
    * @throws TimeoutException 超时异常
+   * @throws InterruptedException 中断异常
    */
   void createOrder(OrderCreateVO orderCreateVO)
       throws IOException, TimeoutException, InterruptedException;
@@ -29,6 +30,9 @@ public interface OrderDetailService extends IService<OrderDetail> {
    * 创建订单列表
    *
    * @param list 列表
+   * @throws IOException IOexception
+   * @throws TimeoutException 超时异常
+   * @throws InterruptedException 中断异常
    */
   void createOrderList(List<OrderCreateVO> list)
       throws IOException, TimeoutException, InterruptedException;

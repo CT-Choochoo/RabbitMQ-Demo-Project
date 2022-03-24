@@ -1,5 +1,7 @@
 package com.boo.ribbitmq.restaurant.service;
 
+import java.io.IOException;
+
 /**
  * 餐馆消息服务
  *
@@ -8,6 +10,6 @@ package com.boo.ribbitmq.restaurant.service;
  */
 public interface RestaurantMessageService {
 
-  /** 处理消息 */
-  void handleMessage() throws InterruptedException;
+
+  void publishHandle(byte[] body) throws IOException;
 }

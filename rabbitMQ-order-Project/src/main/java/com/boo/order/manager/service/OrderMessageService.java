@@ -1,7 +1,6 @@
 package com.boo.order.manager.service;
 
-import java.io.IOException;
-import java.util.concurrent.TimeoutException;
+import com.boo.order.manager.dto.OrderMessageDTO;
 
 /**
  * 订单信息服务
@@ -10,12 +9,11 @@ import java.util.concurrent.TimeoutException;
  * @date 2022/03/18
  */
 public interface OrderMessageService {
+
   /**
-   * 处理消息
+   * 发布处理
    *
-   * @throws IOException ioexception
-   * @throws TimeoutException 超时异常
-   * @throws InterruptedException 中断异常
+   * @param body 消息byte[]
    */
-  void handleMessage() throws IOException, TimeoutException, InterruptedException;
+  void handleMessage(OrderMessageDTO body);
 }

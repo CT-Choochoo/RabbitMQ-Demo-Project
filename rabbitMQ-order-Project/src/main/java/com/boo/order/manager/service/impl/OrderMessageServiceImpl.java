@@ -5,95 +5,72 @@ import com.boo.order.manager.enums.OrderStatusEnum;
 import com.boo.order.manager.po.OrderDetail;
 import com.boo.order.manager.service.OrderDetailService;
 import com.boo.order.manager.service.OrderMessageService;
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rabbitmq.client.Channel;
-import com.rabbitmq.client.Connection;
-import com.rabbitmq.client.ConnectionFactory;
-import com.rabbitmq.client.DeliverCallback;
 import java.io.IOException;
 import java.util.concurrent.TimeoutException;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.amqp.rabbit.connection.Connection;
+import org.springframework.amqp.rabbit.connection.ConnectionFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.scheduling.annotation.Async;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 
+/**
+ * 订单消息服务impl
+ *
+ * @author gaobo
+ * @date 2022/03/24
+ */
 @Slf4j
 @Service
 public class OrderMessageServiceImpl implements OrderMessageService {
 
   ObjectMapper objectMapper = new ObjectMapper();
-
-  @Autowired OrderDetailService orderDetailService;
+  @Lazy @Autowired OrderDetailService orderDetailService;
+  @Lazy @Autowired ConnectionFactory connectionFactory;
   /**
-   * 处理消息
+   * 发布处理
    *
-   * @throws IOException IO Exception
-   * @throws TimeoutException 超时异常
-   * @throws InterruptedException 中断异常
+   * @param body 消息byte[]
    */
   @Override
-  @Async
-  public void handleMessage() throws IOException, TimeoutException, InterruptedException {
-    //    1. 创建连接
-    log.info("start listening message");
-    ConnectionFactory connectionFactory = new ConnectionFactory();
-    try (Connection connection = connectionFactory.newConnection();
-        Channel channel = connection.createChannel()) {
-
-      channel.basicConsume("queue.order", true, deliverCallback, consumerTag -> {});
-      while (true) {
-        Thread.sleep(10000000);
+  public void handleMessage(OrderMessageDTO body) {
+    try {
+      //          获取队列中的对象,判断阶段做对应处处理
+      OrderDetail entity = orderDetailService.getById(body.getOrderId());
+      switch (entity.getStatus()) {
+        case ORDER_CREATING:
+          log.info("订单创建完成，商家确认完毕，开始发送给骑手。。。。。");
+          executeOrderCreating(body, entity, connectionFactory);
+          break;
+        case RESTAURANT_CONFIRMED:
+          log.info("骑手已确认，更新信息，开始结算。。。。。");
+          executeRestaurantConfirmed(body, entity, connectionFactory);
+          break;
+        case DELIVERYMAN_CONFIRMED:
+          log.info("结算信息已确认，开始计算积分。。。。。");
+          executeDeliverymanConfirmed(body, entity, connectionFactory);
+          break;
+        case SETTLEMENT_CONFIRMED:
+          log.info("订单完成！");
+          if (null != body.getRewardId()) {
+            entity.setStatus(OrderStatusEnum.ORDER_CREATED);
+            entity.setRewardId(body.getRewardId());
+          } else {
+            entity.setStatus(OrderStatusEnum.FAILED);
+          }
+          orderDetailService.updateById(entity);
+          break;
+        default:
+          break;
       }
+
+    } catch (Exception e) {
+      e.printStackTrace();
     }
   }
-
-  /** 提供回调 */
-  DeliverCallback deliverCallback =
-      (consumerTag, message) -> {
-        String messageBody = new String(message.getBody());
-        log.info("deliverCallback:messageBody:{}", messageBody);
-        ConnectionFactory connectionFactory = new ConnectionFactory();
-        connectionFactory.setHost("localhost");
-        connectionFactory.setUsername("admin");
-        connectionFactory.setPassword("admin");
-        try {
-          //          获取队列中的对象,判断阶段做对应处处理
-          OrderMessageDTO orderMessageDTO =
-              objectMapper.readValue(messageBody, OrderMessageDTO.class);
-          OrderDetail entity = orderDetailService.getById(orderMessageDTO.getOrderId());
-
-          switch (entity.getStatus()) {
-            case ORDER_CREATING:
-              log.info("订单创建完成，商家确认完毕，开始发送给骑手。。。。。");
-              executeOrderCreating(orderMessageDTO, entity, connectionFactory);
-              break;
-            case RESTAURANT_CONFIRMED:
-              log.info("骑手已确认，更新信息，开始结算。。。。。");
-              executeRestaurantConfirmed(orderMessageDTO, entity, connectionFactory);
-              break;
-            case DELIVERYMAN_CONFIRMED:
-              log.info("结算信息已确认，开始计算积分。。。。。");
-              executeDeliverymanConfirmed(orderMessageDTO, entity, connectionFactory);
-              break;
-            case SETTLEMENT_CONFIRMED:
-              log.info("订单完成！");
-              if (null != orderMessageDTO.getRewardId()) {
-                entity.setStatus(OrderStatusEnum.ORDER_CREATED);
-                entity.setRewardId(orderMessageDTO.getRewardId());
-              } else {
-                entity.setStatus(OrderStatusEnum.FAILED);
-              }
-              orderDetailService.updateById(entity);
-              break;
-            default:
-              break;
-          }
-
-        } catch (JsonProcessingException | TimeoutException e) {
-          e.printStackTrace();
-        }
-      };
+  ;
 
   /**
    * 送货人执行确认
@@ -109,10 +86,11 @@ public class OrderMessageServiceImpl implements OrderMessageService {
       entity.setStatus(OrderStatusEnum.SETTLEMENT_CONFIRMED);
       entity.setSettlementId(orderMessageDTO.getSettlementId());
       orderDetailService.updateById(entity);
-      try (Connection connection = connectionFactory.newConnection();
-          Channel channel = connection.createChannel()) {
+      try (Connection connection = connectionFactory.createConnection();
+          Channel channel = connection.createChannel(true)) {
         String messageToSend = objectMapper.writeValueAsString(orderMessageDTO);
-        channel.basicPublish("exchange.order.reward", "key.reward", null, messageToSend.getBytes());
+        channel.basicPublish(
+            "exchange.order.reward", "key.reward", false, null, messageToSend.getBytes());
       }
     } else {
       entity.setStatus(OrderStatusEnum.FAILED);
@@ -127,22 +105,21 @@ public class OrderMessageServiceImpl implements OrderMessageService {
    * @param entity 实体
    * @param connectionFactory 连接工厂
    * @throws IOException ioexception
-   * @throws TimeoutException 超时异常
    */
   private void executeRestaurantConfirmed(
       OrderMessageDTO orderMessageDTO, OrderDetail entity, ConnectionFactory connectionFactory)
-      throws IOException, TimeoutException {
+      throws IOException {
 
     if (null != orderMessageDTO.getDeliverymanId()) {
       entity.setStatus(OrderStatusEnum.DELIVERYMAN_CONFIRMED);
       entity.setDeliverymanId(orderMessageDTO.getDeliverymanId());
       orderDetailService.updateById(entity);
-      try (Connection connection = connectionFactory.newConnection();
-          Channel channel = connection.createChannel()) {
-        String messageToSend = objectMapper.writeValueAsString(orderMessageDTO);
-        channel.basicPublish(
-            "exchange.order.settlement", "key.settlement", null, messageToSend.getBytes());
-      }
+      Connection connection = connectionFactory.createConnection();
+      Channel channel = connection.createChannel(false);
+      String messageToSend = objectMapper.writeValueAsString(orderMessageDTO);
+      channel.basicPublish(
+          "exchange.order.settlement", "key.settlement", false, null, messageToSend.getBytes());
+
     } else {
       entity.setStatus(OrderStatusEnum.FAILED);
       orderDetailService.updateById(entity);
@@ -160,23 +137,22 @@ public class OrderMessageServiceImpl implements OrderMessageService {
    * @param entity 实体
    * @param connectionFactory 连接工厂
    * @throws IOException IOexception
-   * @throws TimeoutException 超时异常
    */
   private void executeOrderCreating(
       OrderMessageDTO orderMessageDTO, OrderDetail entity, ConnectionFactory connectionFactory)
-      throws IOException, TimeoutException {
+      throws IOException {
 
     if (orderMessageDTO.getConfirmed() && null != orderMessageDTO.getPrice()) {
       entity.setStatus(OrderStatusEnum.RESTAURANT_CONFIRMED);
       entity.setPrice(orderMessageDTO.getPrice());
       orderDetailService.updateById(entity);
 
-      try (Connection connection = connectionFactory.newConnection();
-          Channel channel = connection.createChannel()) {
-        String messageToSend = objectMapper.writeValueAsString(orderMessageDTO);
-        channel.basicPublish(
-            "exchange.order.deliveryman", "key.deliveryman", null, messageToSend.getBytes());
-      }
+      Connection connection = connectionFactory.createConnection();
+      Channel channel = connection.createChannel(false);
+      String messageToSend = objectMapper.writeValueAsString(orderMessageDTO);
+      channel.basicPublish(
+          "exchange.order.deliveryman", "key.deliveryman", false, null, messageToSend.getBytes());
+
     } else {
       entity.setStatus(OrderStatusEnum.FAILED);
       orderDetailService.updateById(entity);

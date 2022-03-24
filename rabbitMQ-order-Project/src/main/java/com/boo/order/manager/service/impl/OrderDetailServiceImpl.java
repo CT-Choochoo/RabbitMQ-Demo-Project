@@ -18,11 +18,9 @@ import java.util.List;
 import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.amqp.core.Message;
 import org.springframework.amqp.rabbit.connection.Connection;
 import org.springframework.amqp.rabbit.connection.ConnectionFactory;
 import org.springframework.amqp.rabbit.connection.CorrelationData;
-import org.springframework.amqp.rabbit.core.ChannelCallback;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
@@ -67,7 +65,7 @@ public class OrderDetailServiceImpl extends ServiceImpl<OrderDetailMapper, Order
     correlationData.setId(orderDetail.getId().toString());
     //  5.发送消息给商家队列
     rabbitTemplate.convertAndSend(
-        "exchange.order.restaurant", "key.restaurant", orderMessageDTO.toString(),correlationData);
+        "exchange.order.restaurant", "key.restaurant", messageToSend.getBytes(), correlationData);
   }
 
   /**
