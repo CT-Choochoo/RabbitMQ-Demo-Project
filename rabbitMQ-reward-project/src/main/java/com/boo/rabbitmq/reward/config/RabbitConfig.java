@@ -18,21 +18,5 @@ import org.springframework.context.annotation.Configuration;
 @Slf4j
 @Configuration
 public class RabbitConfig {
-  @Autowired RewardMessageService messageService;
 
-  @Autowired
-  public void startListenMessage() throws IOException, TimeoutException, InterruptedException {
-    messageService.handleMessage();
-  }
-
-  @Bean
-  public ConnectionFactory connectionFactory() {
-    return new ConnectionFactory() {
-      {
-        setHost("localhost");
-        setUsername("admin");
-        setPassword("admin");
-      }
-    };
-  }
 }

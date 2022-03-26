@@ -22,7 +22,15 @@ public class OrderController {
 
   @Autowired OrderDetailService orderService;
 
-  @PostMapping("/order")
+  /**
+   * 创建订单
+   *
+   * @param orderCreateDTO 订单创建dto
+   * @return {@link String}
+   * @throws IOException ioexception
+   * @throws TimeoutException 超时异常
+   * @throws InterruptedException 中断异常
+   */@PostMapping("/order")
   public String createOrder(@RequestBody OrderCreateVO orderCreateDTO)
       throws IOException, TimeoutException, InterruptedException {
     log.info("createOrder:orderCreateDTO:{}", orderCreateDTO);
@@ -30,6 +38,15 @@ public class OrderController {
     return "Success!";
   }
 
+  /**
+   * 创建订单列表
+   *
+   * @param vo 签证官
+   * @return {@link String}
+   * @throws IOException ioexception
+   * @throws TimeoutException 超时异常
+   * @throws InterruptedException 中断异常
+   */
   @PostMapping("orderList")
   public String createOrderList(@RequestBody OrderCreateVO vo)
       throws IOException, TimeoutException, InterruptedException {
@@ -37,7 +54,7 @@ public class OrderController {
     List<OrderCreateVO> list = new ArrayList<>(50);
     for (int i = 0; i < 50; i++) {
       final OrderCreateVO orderCreateVO = new OrderCreateVO();
-      BeanUtils.copyProperties(vo,orderCreateVO);
+      BeanUtils.copyProperties(vo, orderCreateVO);
       list.add(orderCreateVO);
     }
     orderService.createOrderList(list);

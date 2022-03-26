@@ -16,8 +16,18 @@ import java.io.IOException;
 import java.util.List;
 import java.util.concurrent.TimeoutException;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.amqp.core.Message;
+import org.springframework.amqp.rabbit.annotation.Argument;
+import org.springframework.amqp.rabbit.annotation.Exchange;
+import org.springframework.amqp.rabbit.annotation.Queue;
+import org.springframework.amqp.rabbit.annotation.QueueBinding;
+import org.springframework.amqp.rabbit.annotation.RabbitListener;
+import org.springframework.amqp.rabbit.connection.CorrelationData;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Lazy;
+import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
@@ -31,60 +41,61 @@ import org.springframework.stereotype.Service;
 @Service
 public class DeliverymanMessageServiceImpl implements DeliverymanMessageService {
 
-  @Autowired @Lazy ConnectionFactory factory;
   @Autowired DeliverymanService deliverymanService;
 
+  @Autowired RabbitTemplate rabbitTemplate;
+
   ObjectMapper objectMapper = new ObjectMapper();
-  /**
-   * 处理消息 @throws IOException ioexception
-   *
-   * @throws TimeoutException 超时异常
-   */
+
+  @Value("${rabbitComponent.exchange.deliveryman}")
+  private String exchangeDeliveryman;
+
+  @Value("${rabbitComponent.routingKey.order}")
+  private String routingKeyOrder;
+
+  /** 处理消息 @throws IOException ioexception */
+  @RabbitListener(
+      bindings = {
+        @QueueBinding(
+            value =
+                @Queue(
+                    name = "${rabbitComponent.queue.deliveryman}",
+                    arguments = {
+                      @Argument(
+                          name = "x-message-ttl",
+                          value = "15000",
+                          type = "java.lang.Integer"),
+                      @Argument(name = "x-max-length", value = "20", type = "java.lang.Integer"),
+                      @Argument(
+                          name = "x-dead-letter-exchange",
+                          value = "${rabbitComponent.exchange.dlx}")
+                    }),
+            exchange = @Exchange(name = "${rabbitComponent.exchange.deliveryman}"),
+            key = "${rabbitComponent.routingKey.deliveryman}")
+      })
   @Override
-  @Async
-  public void handleMessage() throws IOException, TimeoutException, InterruptedException {
-    final Connection connection = factory.newConnection();
-    final Channel channel = connection.createChannel();
+  public void handleMessage(@Payload Message message) throws IOException {
+    final String msg = new String(message.getBody());
+    log.info("骑手端收到消息:messageBody:{}", msg);
+    final OrderMessageDTO orderMessageDTO = objectMapper.readValue(msg, OrderMessageDTO.class);
+    final List<Deliveryman> list =
+        deliverymanService.list(
+            new LambdaQueryWrapper<Deliveryman>()
+                .eq(Deliveryman::getStatus, DeliverymanStatusEnum.AVALIABLE));
 
-    final String exchangeName = "exchange.order.deliveryman";
-    final String queueName = "queue.deliveryman";
-    final String routingKey = "key.deliveryman";
-    //    声明骑手交换机
-    channel.exchangeDeclare(exchangeName, BuiltinExchangeType.DIRECT, true, false, null);
-    //    声明骑手队列
-    channel.queueDeclare(queueName, true, false, false, null);
+    final Deliveryman deliveryman = list.get(0);
+    orderMessageDTO.setDeliverymanId(deliveryman.getId());
+    log.info("骑手已选定 发回消息给order:restaurantOrderMessageDTO:{}", orderMessageDTO);
 
-    //    绑定交换机和队列
-    channel.queueBind(queueName, exchangeName, routingKey);
-    //    定义消息消费方法
-    channel.basicConsume(queueName, true, deliverymanCallback, consumerTag -> {});
-    while (true) {
-      Thread.sleep(10000000);
-    }
+    String messageToSend = objectMapper.writeValueAsString(orderMessageDTO);
+    rabbitTemplate.send(
+        exchangeDeliveryman,
+        routingKeyOrder,
+        new Message(messageToSend.getBytes()),
+        new CorrelationData() {
+          {
+            setId(orderMessageDTO.getOrderId().toString());
+          }
+        });
   }
-
-  /** 送货人回调 处理本次自身操作，并发送给下一阶段消息 */
-  DeliverCallback deliverymanCallback =
-      (consumerTag, message) -> {
-        final String msg = new String(message.getBody());
-        log.info("deliverCallback:messageBody:{}", msg);
-        final OrderMessageDTO orderMessageDTO = objectMapper.readValue(msg, OrderMessageDTO.class);
-        final List<Deliveryman> list =
-            deliverymanService.list(
-                new LambdaQueryWrapper<Deliveryman>()
-                    .eq(Deliveryman::getStatus, DeliverymanStatusEnum.AVALIABLE));
-
-        final Deliveryman deliveryman = list.get(0);
-        orderMessageDTO.setDeliverymanId(deliveryman.getId());
-        log.info("onMessage:restaurantOrderMessageDTO:{}", orderMessageDTO);
-
-        try (Connection connection = factory.newConnection()) {
-          final Channel channel = connection.createChannel();
-          String messageToSend = objectMapper.writeValueAsString(orderMessageDTO);
-          channel.basicPublish(
-              "exchange.order.deliveryman", "key.order", null, messageToSend.getBytes());
-        } catch (TimeoutException e) {
-          e.printStackTrace();
-        }
-      };
 }

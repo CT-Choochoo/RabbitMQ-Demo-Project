@@ -1,6 +1,6 @@
 package com.boo.order.manager.service;
 
-import com.boo.order.manager.dto.OrderMessageDTO;
+import org.springframework.amqp.core.Message;
 
 /**
  * 订单信息服务
@@ -13,7 +13,7 @@ public interface OrderMessageService {
   /**
    * 发布处理
    *
-   * @param body 消息byte[]
+   * @param message 消息byte[]
    */
-  void handleMessage(OrderMessageDTO body);
+  void handleMessage(Message message);
 }

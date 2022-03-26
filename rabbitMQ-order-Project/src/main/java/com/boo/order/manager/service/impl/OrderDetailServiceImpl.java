@@ -8,22 +8,19 @@ import com.boo.order.manager.enums.OrderStatusEnum;
 import com.boo.order.manager.po.OrderDetail;
 import com.boo.order.manager.service.OrderDetailService;
 import com.boo.order.manager.vo.OrderCreateVO;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.ConfirmListener;
 import java.io.IOException;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.amqp.rabbit.connection.Connection;
-import org.springframework.amqp.rabbit.connection.ConnectionFactory;
 import org.springframework.amqp.rabbit.connection.CorrelationData;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Lazy;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 /**
@@ -41,8 +38,13 @@ public class OrderDetailServiceImpl extends ServiceImpl<OrderDetailMapper, Order
 
   @Autowired OrderDetailMapper mapper;
   @Autowired OrderDetailConvert orderDetailConvert;
-  @Autowired @Lazy ConnectionFactory connectionFactory;
-  @Autowired @Lazy RabbitTemplate rabbitTemplate;
+  @Autowired RabbitTemplate createRabbitTemplate;
+
+  @Value(value = "${rabbitComponent.exchange.restaurant}")
+  public String exchangeRestaurant;
+
+  @Value(value = "${rabbitComponent.routingKey.restaurant}")
+  public String routingKeyRestaurant;
 
   /**
    * 创建订单
@@ -64,8 +66,8 @@ public class OrderDetailServiceImpl extends ServiceImpl<OrderDetailMapper, Order
     final CorrelationData correlationData = new CorrelationData();
     correlationData.setId(orderDetail.getId().toString());
     //  5.发送消息给商家队列
-    rabbitTemplate.convertAndSend(
-        "exchange.order.restaurant", "key.restaurant", messageToSend.getBytes(), correlationData);
+    createRabbitTemplate.convertAndSend(
+        exchangeRestaurant, routingKeyRestaurant, messageToSend.getBytes(), correlationData);
   }
 
   /**
@@ -74,8 +76,7 @@ public class OrderDetailServiceImpl extends ServiceImpl<OrderDetailMapper, Order
    * @param list 列表
    */
   @Override
-  public void createOrderList(List<OrderCreateVO> list)
-      throws IOException, TimeoutException, InterruptedException {
+  public void createOrderList(List<OrderCreateVO> list) throws IOException {
 
     final List<OrderDetail> collect =
         list.stream()
@@ -91,35 +92,20 @@ public class OrderDetailServiceImpl extends ServiceImpl<OrderDetailMapper, Order
     //  1.收到订单，更新状态和时间并保存
 
     this.saveBatch(collect);
-
-    //  2.获取connection
-
-    //  3.获取channel
-    try (Connection connection = connectionFactory.createConnection();
-        Channel channel = connection.createChannel(false)) {
-      //    设置异常投递返回
-      this.settingCallBackReturnListener(channel);
-
-      //  4.构建dto对象发送消息
-      final List<OrderMessageDTO> dtoList =
-          collect.stream()
-              .map(
-                  item -> {
-                    OrderMessageDTO orderMessageDTO =
-                        orderDetailConvert.entity2DataTransferObject(item);
-                    orderMessageDTO.setOrderStatus(OrderStatusEnum.ORDER_CREATING);
-                    return orderMessageDTO;
-                  })
-              .collect(Collectors.toList());
-      final ArrayList<String> arrayDto = new ArrayList<>(50);
-      for (OrderMessageDTO dto : dtoList) {
-        arrayDto.add(objectMapper.writeValueAsString(dto));
-      }
-      //  5.发送消息给商家队列
-      for (String str : arrayDto) {
-        this.sendSingleMessageConfirm(
-            channel, "exchange.order.restaurant", "key.restaurant", str.getBytes());
-      }
+    //  4.构建dto对象发送消息
+    final List<OrderMessageDTO> dtoList =
+        collect.stream()
+            .map(
+                item -> {
+                  OrderMessageDTO orderMessageDTO =
+                      orderDetailConvert.entity2DataTransferObject(item);
+                  orderMessageDTO.setOrderStatus(OrderStatusEnum.ORDER_CREATING);
+                  return orderMessageDTO;
+                })
+            .collect(Collectors.toList());
+    //  5.发送消息给商家队列
+    for (OrderMessageDTO dto : dtoList) {
+      this.sendSingleMessageConfirm(exchangeRestaurant, routingKeyRestaurant, dto);
     }
   }
 
@@ -128,24 +114,18 @@ public class OrderDetailServiceImpl extends ServiceImpl<OrderDetailMapper, Order
    *
    * @param exchangeName 交换名称
    * @param routingKey 路由关键
-   * @param msg 味精
    */
-  private void sendSingleMessageConfirm(
-      Channel channel, String exchangeName, String routingKey, byte[] msg)
-      throws IOException, InterruptedException {
+  private void sendSingleMessageConfirm(String exchangeName, String routingKey, OrderMessageDTO dto)
+      throws JsonProcessingException {
+
+    final String s = objectMapper.writeValueAsString(dto);
     //      标记发送确认
-    channel.confirmSelect();
-    log.info("发送给商家队列消息：[{}]", new String(msg));
-    //    设置消息超时时间
-    //    final BasicProperties props = new Builder().expiration("15000").build();
-    channel.basicPublish(exchangeName, routingKey, null, msg);
-    log.info("message sent");
-    //      等待消息发送成功
-    if (channel.waitForConfirms()) {
-      log.info("RabbitMQ confirm success!");
-    } else {
-      log.info("RabbitMQ confirm failed!");
-    }
+    log.info("发送给商家队列消息：[{}]", s);
+    //    设置发送消息附加信息
+    final CorrelationData correlationData = new CorrelationData();
+    correlationData.setId(dto.getOrderId().toString());
+    createRabbitTemplate.convertAndSend(exchangeName, routingKey, s.getBytes(), correlationData);
+    log.info("订单已发送 message sent");
   }
 
   /**
@@ -211,19 +191,6 @@ public class OrderDetailServiceImpl extends ServiceImpl<OrderDetailMapper, Order
       log.info("message sent");
     }
     Thread.sleep(3000);
-  }
-
-  /**
-   * 设置回调返回侦听器
-   *
-   * @param channel 信道
-   */
-  private void settingCallBackReturnListener(Channel channel) {
-    channel.addReturnListener(
-        returnMessage -> {
-          log.info("发送消息无法路由！Message Return：[{}]", returnMessage.toString());
-          //              TODO 消息投递异常
-        });
   }
 
   /**

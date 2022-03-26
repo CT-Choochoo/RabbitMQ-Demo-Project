@@ -1,15 +1,7 @@
 package com.boo.rabbitmq.deliveryman.config;
 
-import com.boo.rabbitmq.deliveryman.service.DeliverymanMessageService;
-import com.boo.rabbitmq.deliveryman.service.DeliverymanService;
-import com.rabbitmq.client.ConnectionFactory;
-import java.io.IOException;
-import java.util.concurrent.TimeoutException;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Lazy;
 
 /**
  * rabbit配置 spring启动时加载执行 orderMessageService.handleMessage()
@@ -20,21 +12,5 @@ import org.springframework.context.annotation.Lazy;
 @Slf4j
 @Configuration
 public class RabbitConfig {
-  @Autowired DeliverymanMessageService messageService;
 
-  @Autowired
-  public void startListenMessage() throws IOException, TimeoutException, InterruptedException {
-    messageService.handleMessage();
-  }
-
-  @Bean
-  public ConnectionFactory connectionFactory() {
-    return new ConnectionFactory() {
-      {
-        setHost("localhost");
-        setUsername("admin");
-        setPassword("admin");
-      }
-    };
-  }
 }

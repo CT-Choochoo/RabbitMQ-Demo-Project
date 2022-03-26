@@ -1,5 +1,9 @@
 package com.boo.rabbitmq.reward.service;
 
+
+import com.fasterxml.jackson.core.JsonProcessingException;
+import org.springframework.amqp.core.Message;
+
 /**
  * 奖励消息服务
  *
@@ -8,5 +12,5 @@ package com.boo.rabbitmq.reward.service;
  */
 public interface RewardMessageService {
 
-  void handleMessage() throws InterruptedException;
+  void handleMessage(Message message) throws InterruptedException, JsonProcessingException;
 }

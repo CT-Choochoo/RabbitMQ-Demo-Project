@@ -1,0 +1,14 @@
+rabbitComponent:
+  exchange:
+    settlement: exchange.order.settlement
+    settlementOrder: exchange.settlement.order
+    dlx: exchange.dlx
+  queue:
+    oder: queue.order
+    settlement: queue.settlement
+    dlx: queue.dlx
+  routingKey:
+    order: key.order
+    settlement: key.settlement
+    dlx: \#
+

@@ -1,0 +1,12 @@
+rabbitComponent:
+  exchange:
+    restaurant: exchange.order.restaurant
+    dlx: exchange.order.dlx
+  queue:
+    restaurant: queue.restaurant
+    dlx: queue.dlx
+  routingKey:
+    restaurant: key.restaurant
+    order: key.order
+    dlx: \#
+

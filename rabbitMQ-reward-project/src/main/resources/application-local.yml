@@ -1,0 +1,13 @@
+rabbitComponent:
+  exchange:
+    reward: exchange.order.reward
+    dlx: exchange.dlx
+  queue:
+    oder: queue.order
+    reward: queue.reward
+    dlx: queue.dlx
+  routingKey:
+    order: key.order
+    reward: key.reward
+    dlx: \#
+
