@@ -1,19 +1,1 @@
-rabbitComponent:
-  exchange:
-    restaurant: exchange.order.restaurant
-    deliveryman: exchange.order.deliveryman
-    settlement: exchange.order.settlement
-    settlementOrder: exchange.settlement.order
-    reward: exchange.order.reward
-    dlx: exchange.dlx
-  queue:
-    oder: queue.order
-    dlx: queue.dlx
-  routingKey:
-    order: key.order
-    restaurant: key.restaurant
-    reward: key.reward
-    settlement: key.settlement
-    deliveryman: key.deliveryman
-    all: \#
 

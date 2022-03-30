@@ -1,4 +1,4 @@
-package com.boo.order.manager.enums;
+package com.boo.rabbitmq.reward.enums;
 
 /**
  * Rabbit组件枚举
@@ -47,6 +47,8 @@ public interface RabbitComponentEnum {
   enum QueueEnum {
     /** 订单 */
     ORDER("queue.order"),
+    /** 奖励 */
+    REWARD("queue.reward"),
     /** 死信队列 */
     DLX("queue.dlx");
     private String code;
@@ -66,7 +68,6 @@ public interface RabbitComponentEnum {
     KEY_REWARD("key.reward"),
     KEY_SETTLEMENT("key.settlement"),
     KEY_DELIVERYMAN("key.deliveryman"),
-    KEY_RESTAURANT("key.restaurant"),
     ALL("#");
     private String code;
 

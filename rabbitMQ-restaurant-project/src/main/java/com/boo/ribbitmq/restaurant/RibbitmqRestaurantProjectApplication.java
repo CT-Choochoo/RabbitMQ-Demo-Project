@@ -1,7 +1,10 @@
 package com.boo.ribbitmq.restaurant;
 
+import org.apache.ibatis.annotations.Mapper;
+import org.mybatis.spring.annotation.MapperScan;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.context.annotation.ComponentScan;
 import org.springframework.scheduling.annotation.EnableAsync;
 
 /**
@@ -11,7 +14,8 @@ import org.springframework.scheduling.annotation.EnableAsync;
  * @date 2022/03/19
  */
 @SpringBootApplication
-@EnableAsync
+@ComponentScan("com.boo")
+@MapperScan(value = "com.boo", annotationClass= Mapper.class)
 public class RibbitmqRestaurantProjectApplication {
 
   public static void main(String[] args) {

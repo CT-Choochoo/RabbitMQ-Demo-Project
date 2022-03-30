@@ -1,5 +1,5 @@
 server:
-  port: 8080
+  port: 8086
 
 # 数据池设置
 spring:
@@ -9,13 +9,18 @@ spring:
     driverClassName: com.mysql.cj.jdbc.Driver
     username: root
     password: 123456
-  rabbitmq:
-    host: localhost
-    port: 5672
-    username: admin
-    password: admin
-    
 
-    #    publisher-confirm-type: none
+
   profiles:
     active: local
+moodymq:
+  service: orderService
+  host: 127.0.0.1
+  port: 5672
+  username: admin
+  password: admin
+  vhost: /
+  resendTimes: 5
+  resendFreq: 5000
+  dlxEnabled: true
+  reconsumeTimes: 5

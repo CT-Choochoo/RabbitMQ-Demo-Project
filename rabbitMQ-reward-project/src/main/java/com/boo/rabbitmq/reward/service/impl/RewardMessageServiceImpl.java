@@ -1,9 +1,13 @@
 package com.boo.rabbitmq.reward.service.impl;
 
+import com.boo.moodymq.listener.AbstractMessageListener;
+import com.boo.moodymq.sender.TransMessageSender;
 import com.boo.rabbitmq.reward.dto.OrderMessageDTO;
 import com.boo.rabbitmq.reward.entity.Reward;
+import com.boo.rabbitmq.reward.enums.RabbitComponentEnum;
+import com.boo.rabbitmq.reward.enums.RabbitComponentEnum.ExchangeEnum;
+import com.boo.rabbitmq.reward.enums.RabbitComponentEnum.RoutingKey;
 import com.boo.rabbitmq.reward.enums.RewardStatusEnum;
-import com.boo.rabbitmq.reward.service.RewardMessageService;
 import com.boo.rabbitmq.reward.service.RewardService;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -31,61 +35,34 @@ import org.springframework.stereotype.Service;
  */
 @Service
 @Slf4j
-public class RewardMessageServiceImpl implements RewardMessageService {
+public class RewardMessageServiceImpl extends AbstractMessageListener {
 
   ObjectMapper objectMapper = new ObjectMapper();
   @Autowired RewardService rewardService;
 
-  @Autowired RabbitTemplate rabbitTemplate;
-
-  @Value("${rabbitComponent.exchange.reward}")
-  private String exchangeReward;
-
-  @Value("${rabbitComponent.routingKey.order}")
-  private String routingKeyOrder;
+  @Autowired TransMessageSender sender;
 
   /** 处理消息 声明交换机 ， 队列 ，绑定关系，定义消费方式 */
-  @RabbitListener(
-      bindings = {
-        @QueueBinding(
-            value =
-                @Queue(
-                    name = "${rabbitComponent.queue.reward}",
-                    arguments = {
-                      @Argument(name = "x-message-ttl", value = "15000", type = "java.lang.Long"),
-                      @Argument(
-                          name = "x-dead-letter-exchange",
-                          value = "${rabbitComponent.exchange.dlx}"),
-                      @Argument(name = "x-max-length", value = "20", type = "java.lang.Long")
-                    }),
-            exchange =
-                @Exchange(name = "${rabbitComponent.exchange.reward}", type = ExchangeTypes.TOPIC),
-            key = "${rabbitComponent.routingKey.reward}")
-      })
   @Override
-  public void handleMessage(@Payload Message message) throws JsonProcessingException {
+  public void receiveMessage(Message message) {
 
     final String msg = new String(message.getBody());
     log.info("交易完成 。。开始积分:messageBody:{}", msg);
 
-    final OrderMessageDTO orderMessageDTO = objectMapper.readValue(msg, OrderMessageDTO.class);
-    Reward reward = new Reward();
-    reward.setOrderId(orderMessageDTO.getOrderId());
-    reward.setStatus(RewardStatusEnum.SUCCESS);
-    reward.setAmount(orderMessageDTO.getPrice());
-    reward.setDate(LocalDateTime.now());
-    rewardService.save(reward);
-    orderMessageDTO.setRewardId(reward.getId());
-    log.info("积分完成。。。。准备结束订单:settlementOrderDTO:{}", orderMessageDTO);
-    final byte[] bytes = objectMapper.writeValueAsBytes(orderMessageDTO);
-    rabbitTemplate.send(
-        exchangeReward,
-        routingKeyOrder,
-        new Message(bytes),
-        new CorrelationData() {
-          {
-            setId(orderMessageDTO.getOrderId().toString());
-          }
-        });
+    try {
+      final OrderMessageDTO orderMessageDTO = objectMapper.readValue(msg, OrderMessageDTO.class);
+      Reward reward = new Reward();
+      reward.setOrderId(orderMessageDTO.getOrderId());
+      reward.setStatus(RewardStatusEnum.SUCCESS);
+      reward.setAmount(orderMessageDTO.getPrice());
+      reward.setDate(LocalDateTime.now());
+      rewardService.save(reward);
+      orderMessageDTO.setRewardId(reward.getId());
+      log.info("积分完成。。。。准备结束订单:settlementOrderDTO:{}", orderMessageDTO);
+      sender.send(
+          ExchangeEnum.ORDER_REWARD.getCode(), RoutingKey.KEY_ORDER.getCode(), orderMessageDTO);
+    } catch (JsonProcessingException e) {
+      e.printStackTrace();
+    }
   }
 }

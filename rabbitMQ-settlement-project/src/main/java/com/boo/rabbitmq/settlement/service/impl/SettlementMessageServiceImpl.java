@@ -1,7 +1,12 @@
 package com.boo.rabbitmq.settlement.service.impl;
 
+import com.boo.moodymq.listener.AbstractMessageListener;
+import com.boo.moodymq.sender.TransMessageSender;
 import com.boo.rabbitmq.settlement.dto.OrderMessageDTO;
 import com.boo.rabbitmq.settlement.entity.Settlement;
+import com.boo.rabbitmq.settlement.enums.RabbitComponentEnum;
+import com.boo.rabbitmq.settlement.enums.RabbitComponentEnum.ExchangeEnum;
+import com.boo.rabbitmq.settlement.enums.RabbitComponentEnum.RoutingKey;
 import com.boo.rabbitmq.settlement.enums.SettlementStatusEnum;
 import com.boo.rabbitmq.settlement.service.SettlementMessageService;
 import com.boo.rabbitmq.settlement.service.SettlementService;
@@ -31,63 +36,34 @@ import org.springframework.stereotype.Service;
  */
 @Slf4j
 @Service
-public class SettlementMessageServiceImpl implements SettlementMessageService {
+public class SettlementMessageServiceImpl extends AbstractMessageListener {
 
   @Autowired SettlementService settlementService;
-  @Autowired RabbitTemplate rabbitTemplate;
   ObjectMapper objectMapper = new ObjectMapper();
-
-  @Value(value = "${rabbitComponent.exchange.settlementOrder}")
-  public String exchangeSettlement;
-
-  @Value(value = "${rabbitComponent.routingKey.order}")
-  public String routingKeyOrder;
+  @Autowired TransMessageSender sender;
+  public static final String SETTLEMENT_EXCHANGE = ExchangeEnum.SETTLEMENT_ORDER.getCode();
+  public static final String ROUTING_KEY_ORDER = RoutingKey.KEY_ORDER.getCode();
   /** 处理消息 */
-  @RabbitListener(
-      bindings = {
-        @QueueBinding(
-            value =
-                @Queue(
-                    name = "${rabbitComponent.queue.settlement}",
-                    arguments = {
-                      @Argument(name = "x-message-ttl", value = "1000", type = "java.lang.Long"),
-                      @Argument(
-                          name = "x-dead-letter-exchange",
-                          value = "${rabbitComponent.exchange.dlx}"),
-                      @Argument(name = "x-max-length", value = "20", type = "java.lang.Long")
-                    }),
-            exchange =
-                @Exchange(
-                    name = "${rabbitComponent.exchange.settlement}",
-                    type = ExchangeTypes.FANOUT),
-            key = "${rabbitComponent.routingKey.settlement}")
-      })
   @Override
-  public void handleMessage(@Payload Message message) throws JsonProcessingException {
+  public void receiveMessage(@Payload Message message) {
 
     final String msg = new String(message.getBody());
-    final OrderMessageDTO orderMessageDTO = objectMapper.readValue(msg, OrderMessageDTO.class);
-    log.info("收到订单结算信息 :orderSettlementDTO:{}", orderMessageDTO);
-    Settlement settlement = new Settlement();
-    settlement.setAmount(orderMessageDTO.getPrice());
-    settlement.setDate(LocalDateTime.now());
-    settlement.setOrderId(orderMessageDTO.getOrderId());
-    settlement.setStatus(SettlementStatusEnum.SUCCESS);
-    settlement.setTransactionId(
-        settlementService.settlement(orderMessageDTO.getAccountId(), orderMessageDTO.getPrice()));
-    settlementService.save(settlement);
-    orderMessageDTO.setSettlementId(settlement.getId());
-    log.info("订单结算完毕，发回订单系统:settlementOrderDTO:{}", orderMessageDTO);
-
-    String messageToSend = objectMapper.writeValueAsString(orderMessageDTO);
-    rabbitTemplate.send(
-        exchangeSettlement,
-        routingKeyOrder,
-        new Message(messageToSend.getBytes()),
-        new CorrelationData() {
-          {
-            setId(orderMessageDTO.getOrderId().toString());
-          }
-        });
+    try {
+      OrderMessageDTO orderMessageDTO = objectMapper.readValue(msg, OrderMessageDTO.class);
+      log.info("收到订单结算信息 :orderSettlementDTO:{}", orderMessageDTO);
+      Settlement settlement = new Settlement();
+      settlement.setAmount(orderMessageDTO.getPrice());
+      settlement.setDate(LocalDateTime.now());
+      settlement.setOrderId(orderMessageDTO.getOrderId());
+      settlement.setStatus(SettlementStatusEnum.SUCCESS);
+      settlement.setTransactionId(
+          settlementService.settlement(orderMessageDTO.getAccountId(), orderMessageDTO.getPrice()));
+      settlementService.save(settlement);
+      orderMessageDTO.setSettlementId(settlement.getId());
+      log.info("订单结算完毕，发回订单系统:settlementOrderDTO:{}", orderMessageDTO);
+      sender.send(SETTLEMENT_EXCHANGE, ROUTING_KEY_ORDER, orderMessageDTO);
+    } catch (JsonProcessingException e) {
+      e.printStackTrace();
+    }
   }
 }

@@ -1,4 +1,4 @@
-package com.boo.order.manager.enums;
+package com.boo.rabbitmq.deliveryman.enums;
 
 /**
  * Rabbit组件枚举
@@ -47,6 +47,7 @@ public interface RabbitComponentEnum {
   enum QueueEnum {
     /** 订单 */
     ORDER("queue.order"),
+    DELIVERYMAN("queue.deliveryman"),
     /** 死信队列 */
     DLX("queue.dlx");
     private String code;

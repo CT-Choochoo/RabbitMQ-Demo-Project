@@ -1,10 +1,14 @@
 package com.boo.order.manager.service.impl;
 
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.boo.moodymq.sender.TransMessageSender;
 import com.boo.order.manager.convert.OrderDetailConvert;
 import com.boo.order.manager.dao.OrderDetailMapper;
 import com.boo.order.manager.dto.OrderMessageDTO;
 import com.boo.order.manager.enums.OrderStatusEnum;
+import com.boo.order.manager.enums.RabbitComponentEnum;
+import com.boo.order.manager.enums.RabbitComponentEnum.ExchangeEnum;
+import com.boo.order.manager.enums.RabbitComponentEnum.RoutingKey;
 import com.boo.order.manager.po.OrderDetail;
 import com.boo.order.manager.service.OrderDetailService;
 import com.boo.order.manager.vo.OrderCreateVO;
@@ -18,7 +22,6 @@ import java.util.List;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.connection.CorrelationData;
-import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -38,22 +41,19 @@ public class OrderDetailServiceImpl extends ServiceImpl<OrderDetailMapper, Order
 
   @Autowired OrderDetailMapper mapper;
   @Autowired OrderDetailConvert orderDetailConvert;
-  @Autowired RabbitTemplate createRabbitTemplate;
+  @Autowired TransMessageSender sender;
 
-  @Value(value = "${rabbitComponent.exchange.restaurant}")
-  public String exchangeRestaurant;
+  public static String exchangeRestaurant = ExchangeEnum.ORDER_RESTAURANT.getCode();
 
-  @Value(value = "${rabbitComponent.routingKey.restaurant}")
-  public String routingKeyRestaurant;
+  public static String routingKeyRestaurant = RoutingKey.KEY_RESTAURANT.getCode();
 
   /**
    * 创建订单
    *
    * @param orderCreateVO 订单创建签证官
-   * @throws IOException IO Exception
    */
   @Override
-  public void createOrder(OrderCreateVO orderCreateVO) throws IOException {
+  public void createOrder(OrderCreateVO orderCreateVO) {
     //  1.收到订单，更新状态和时间并保存
     OrderDetail orderDetail = orderDetailConvert.valueObject2Entity(orderCreateVO);
     orderDetail.setStatus(OrderStatusEnum.ORDER_CREATING);
@@ -62,12 +62,8 @@ public class OrderDetailServiceImpl extends ServiceImpl<OrderDetailMapper, Order
     //  2.构建dto对象发送消息
     OrderMessageDTO orderMessageDTO = orderDetailConvert.entity2DataTransferObject(orderDetail);
     orderMessageDTO.setOrderStatus(OrderStatusEnum.ORDER_CREATING);
-    String messageToSend = objectMapper.writeValueAsString(orderMessageDTO);
-    final CorrelationData correlationData = new CorrelationData();
-    correlationData.setId(orderDetail.getId().toString());
     //  5.发送消息给商家队列
-    createRabbitTemplate.convertAndSend(
-        exchangeRestaurant, routingKeyRestaurant, messageToSend.getBytes(), correlationData);
+    sender.send(exchangeRestaurant, routingKeyRestaurant, orderMessageDTO);
   }
 
   /**
@@ -105,7 +101,8 @@ public class OrderDetailServiceImpl extends ServiceImpl<OrderDetailMapper, Order
             .collect(Collectors.toList());
     //  5.发送消息给商家队列
     for (OrderMessageDTO dto : dtoList) {
-      this.sendSingleMessageConfirm(exchangeRestaurant, routingKeyRestaurant, dto);
+      sender.send(exchangeRestaurant, routingKeyRestaurant, dto);
+      log.info("订单已发送 message sent");
     }
   }
 
@@ -118,14 +115,8 @@ public class OrderDetailServiceImpl extends ServiceImpl<OrderDetailMapper, Order
   private void sendSingleMessageConfirm(String exchangeName, String routingKey, OrderMessageDTO dto)
       throws JsonProcessingException {
 
-    final String s = objectMapper.writeValueAsString(dto);
-    //      标记发送确认
-    log.info("发送给商家队列消息：[{}]", s);
     //    设置发送消息附加信息
-    final CorrelationData correlationData = new CorrelationData();
-    correlationData.setId(dto.getOrderId().toString());
-    createRabbitTemplate.convertAndSend(exchangeName, routingKey, s.getBytes(), correlationData);
-    log.info("订单已发送 message sent");
+
   }
 
   /**

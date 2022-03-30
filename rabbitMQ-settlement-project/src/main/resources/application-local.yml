@@ -1,14 +1,11 @@
-rabbitComponent:
-  exchange:
-    settlement: exchange.order.settlement
-    settlementOrder: exchange.settlement.order
-    dlx: exchange.dlx
-  queue:
-    oder: queue.order
-    settlement: queue.settlement
-    dlx: queue.dlx
-  routingKey:
-    order: key.order
-    settlement: key.settlement
-    dlx: \#
-
+moodymq:
+  service: settlementService
+  host: 127.0.0.1
+  port: 5672
+  username: admin
+  password: admin
+  vhost: /
+  resendTimes: 5
+  resendFreq: 5000
+  dlxEnabled: true
+  reconsumeTimes: 5

@@ -1,11 +1,11 @@
-rabbitComponent:
-  exchange:
-    deliveryman: exchange.order.deliveryman
-    dlx: exchange.dlx
-  queue:
-    deliveryman: queue.deliveryman
-  routingKey:
-    deliveryman: key.deliveryman
-    order: key.order
-    dlx: \#
-
+moodymq:
+  service: deliverymanService
+  host: 127.0.0.1
+  port: 5672
+  username: admin
+  password: admin
+  vhost: /
+  resendTimes: 5
+  resendFreq: 5000
+  dlxEnabled: true
+  reconsumeTimes: 5

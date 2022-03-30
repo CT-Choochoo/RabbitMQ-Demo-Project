@@ -1,13 +1,11 @@
-rabbitComponent:
-  exchange:
-    reward: exchange.order.reward
-    dlx: exchange.dlx
-  queue:
-    oder: queue.order
-    reward: queue.reward
-    dlx: queue.dlx
-  routingKey:
-    order: key.order
-    reward: key.reward
-    dlx: \#
-
+moodymq:
+  service: rewardService
+  host: 127.0.0.1
+  port: 5672
+  username: admin
+  password: admin
+  vhost: /
+  resendTimes: 5
+  resendFreq: 5000
+  dlxEnabled: true
+  reconsumeTimes: 5
